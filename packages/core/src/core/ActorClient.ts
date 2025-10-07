@@ -77,13 +77,7 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
     callback: TypedListener<AllEvents<StateOf<TActor>, EventsOf<TActor>>[K]>
   ): void {
     this.bus.on(eventName, callback);
-
-    // Track listener for cleanup
-    const key = eventName as string;
-    if (!this.listeners.has(key)) {
-      this.listeners.set(key, new Set());
-    }
-    this.listeners.get(key)!.add(callback);
+    this.trackListener(eventName as string, callback);
   }
 
   off<K extends keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>>(
@@ -101,6 +95,16 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
         this.listeners.delete(key);
       }
     }
+  }
+
+  /**
+   * Track a listener for cleanup
+   */
+  private trackListener(key: string, callback: TypedListener<any>): void {
+    if (!this.listeners.has(key)) {
+      this.listeners.set(key, new Set());
+    }
+    this.listeners.get(key)!.add(callback);
   }
 
   /**
@@ -128,14 +132,8 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
         (this._state as Record<string, unknown>)[key] = value;
       };
 
-
       this.bus.on(key as keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>, callback);
-
-      // Track for cleanup
-      if (!this.listeners.has(key)) {
-        this.listeners.set(key, new Set());
-      }
-      this.listeners.get(key)!.add(callback);
+      this.trackListener(key, callback);
     }
   }
 
