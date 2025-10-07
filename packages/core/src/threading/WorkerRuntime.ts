@@ -56,6 +56,9 @@ export default class WorkerRuntime {
     // Store instance
     this.actors[actorId] = actorInstance;
 
+    // Send initial state to main thread for ActorClient hydration
+    actorBus.emit('__state', actorInstance.state);
+
     // Call lifecycle hook (access protected method via type assertion)
     await actorInstance.onInit?.call(actorInstance);
   }

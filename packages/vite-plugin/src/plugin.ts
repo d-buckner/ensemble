@@ -50,7 +50,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
         const virtualModuleId = RESOLVED_VIRTUAL_PREFIX + threadId;
 
         try {
-          const bundledCode = await bundleVirtualWorker(
+          const bundleResult = await bundleVirtualWorker(
             virtualModuleId,
             (id) => {
               if (id === virtualModuleId) {
@@ -62,7 +62,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
             config.root
           );
 
-          workerBundles.set(threadId, bundledCode);
+          workerBundles.set(threadId, bundleResult.code);
         } catch (error) {
           this.error(`Failed to bundle worker for thread "${threadId}": ${error}`);
         }
@@ -81,8 +81,8 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
     },
 
     configureServer(server) {
-      // Serve the worker during development
-      server.middlewares.use(createWorkerMiddleware(workerOutput, actorsByThread, config.root));
+      // Serve the worker during development with smart caching
+      server.middlewares.use(createWorkerMiddleware(workerOutput, actorsByThread, config.root, server));
     },
   };
 

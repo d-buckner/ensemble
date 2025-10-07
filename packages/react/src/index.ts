@@ -65,39 +65,62 @@ export function useActor<TActor extends Actor>(
     throw new Error(`Actor with id "${token.id}" not found`);
   }
 
-  const initialState = client.state;
-  const stateHooks: Record<string, any> = {};
-  const stateObject: Record<string, any> = {};
+  console.log('[useActor] Initial client.state:', client.state);
 
-  // Create a useState hook for each top-level property
-  for (const key in initialState) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const [value, setValue] = useState(initialState[key]);
-    stateHooks[key] = setValue;
-    stateObject[key] = value;
-  }
+  // Use a single state object that gets updated when any property changes
+  const [state, setState] = useState<StateOf<TActor>>(client.state);
 
   useEffect(() => {
-    // Subscribe to each property change
+    console.log('[useActor useEffect] Setting up');
+
     const unsubscribes: Array<() => void> = [];
 
-    for (const key in initialState) {
-      const setter = stateHooks[key];
-      const callback = (value: any) => {
-        setter(value);
-      };
-      client.on(key as any, callback);
-      unsubscribes.push(() => client.off(key as any, callback));
+    // Create a callback that triggers re-render by setting new state object
+    const createCallback = (key: string) => (value: any) => {
+      console.log(`[useActor] Received update for ${key}:`, value);
+      setState(prevState => ({
+        ...prevState,
+        [key]: value,
+      }));
+    };
+
+    // Subscribe to state properties
+    const subscribeToProperties = (hydratedState: StateOf<TActor>) => {
+      console.log('[useActor] Hydration received, subscribing to state properties:', Object.keys(hydratedState));
+
+      // Update local state with hydrated state
+      setState(hydratedState);
+
+      // Subscribe to each property
+      for (const key in hydratedState) {
+        const callback = createCallback(key);
+        console.log(`[useActor] Subscribing to property: ${key}`);
+        client.on(key as any, callback);
+        unsubscribes.push(() => client.off(key as any, callback));
+      }
+    };
+
+    // Listen for hydration event
+    client.on('__hydrated' as any, subscribeToProperties);
+    unsubscribes.push(() => client.off('__hydrated' as any, subscribeToProperties));
+
+    // If already hydrated (main thread actors), subscribe immediately
+    if (Object.keys(client.state).length > 0) {
+      console.log('[useActor] State already hydrated, subscribing immediately');
+      subscribeToProperties(client.state);
     }
 
-    // Cleanup subscriptions on unmount
+    // Cleanup subscriptions on unmount or when client changes
     return () => {
+      console.log('[useActor useEffect] Cleaning up subscriptions');
       unsubscribes.forEach(cleanup => cleanup());
     };
   }, [client]);
 
+  console.log('[useActor] Rendering with state:', state);
+
   return {
     actions: client.actions,
-    state: stateObject as StateOf<TActor>,
+    state,
   };
 }

@@ -159,8 +159,9 @@ export default class ActorSystem {
       // Create actor bus for communication with worker
       const actorBus = new ActorBus<AllEvents<any, any>>(this.mainBus!, actorId);
 
-      // Create ActorClient (state will be managed by worker)
-      const client = new ActorClient(actorBus, options as any, ActorClass);
+      // Create ActorClient with empty state shape
+      // Worker will send initial state via __state message after instantiation
+      const client = new ActorClient(actorBus, {} as any, ActorClass);
       this.clients.set(token.symbol, client);
 
       return;
@@ -194,7 +195,7 @@ export default class ActorSystem {
     // Store instance
     this.instances.set(token.symbol, actorInstance);
 
-    // Create and store ActorClient
+    // Create and store ActorClient with state shape
     const client = new ActorClient(actorBus, actorInstance.state, ActorClass);
     this.clients.set(token.symbol, client);
 
@@ -247,5 +248,16 @@ export default class ActorSystem {
   getClient<T extends Actor>(token: ActorToken<T>): ActorClient<T> | null {
     const client = this.clients.get(token.symbol);
     return client ? (client as ActorClient<T>) : null;
+  }
+
+  /**
+   * Get an ActorClient by actorId (internal use)
+   */
+  getClientByActorId(actorId: string): ActorClient<any> | null {
+    const node = this.graph[actorId];
+    if (!node) return null;
+
+    const client = this.clients.get(node.token.symbol);
+    return client || null;
   }
 }

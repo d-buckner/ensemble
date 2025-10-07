@@ -1,6 +1,7 @@
 import { produceWithPatches, enablePatches, type Draft } from 'immer';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { EventMap, AllEvents } from '../messaging/types';
+import { getActionMetadata } from './decorators';
 
 // Enable Immer patches plugin
 enablePatches();
@@ -42,7 +43,7 @@ export abstract class Actor<
     // Subscribe to action method invocations
     // Each @action decorated method becomes an event listener
     const actor = this as unknown as Record<string, unknown>;
-    const actionMetadata = Reflect.getMetadata('ensemble:actions', this.constructor) || [];
+    const actionMetadata = getActionMetadata(this.constructor);
 
     console.log('[Actor.__init] Setting up action listeners:', {
       actorId: metadata.id,
@@ -59,6 +60,12 @@ export abstract class Actor<
         });
       }
     }
+
+    // Subscribe to state hydration requests from ActorClients
+    this.bus.on('__state-request' as any, () => {
+      console.log(`[Actor] State request received for ${metadata.id}, sending current state`);
+      this.bus.emit('__state' as any, this._state);
+    });
   }
 
   // Public state access (read-only)

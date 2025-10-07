@@ -5,6 +5,11 @@ import replace from '@rollup/plugin-replace';
 import esbuild from 'rollup-plugin-esbuild';
 import { resolve } from 'path';
 
+export interface BundleResult {
+  code: string;
+  watchFiles: string[];
+}
+
 /**
  * Bundles a virtual worker module into standalone JavaScript
  */
@@ -12,7 +17,7 @@ export async function bundleVirtualWorker(
   virtualModuleId: string,
   loadModule: (id: string) => string | undefined,
   projectRoot: string
-): Promise<string> {
+): Promise<BundleResult> {
   const bundle = await rollup({
     input: virtualModuleId,
     external: [],
@@ -65,7 +70,10 @@ export async function bundleVirtualWorker(
       throw new Error('No chunk generated from worker bundle');
     }
 
-    return chunk.code;
+    return {
+      code: chunk.code,
+      watchFiles: bundle.watchFiles,
+    };
   } finally {
     await bundle.close();
   }

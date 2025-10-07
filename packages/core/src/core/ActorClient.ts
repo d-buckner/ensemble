@@ -48,6 +48,7 @@ export interface IActorClient<TActor extends Actor<any, any>> {
  */
 export class ActorClient<TActor extends Actor<any, any>> implements IActorClient<TActor> {
   private _state: StateOf<TActor>;
+  private stateShape: StateOf<TActor>;
   private bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>;
   private actorClass: new (...args: any[]) => TActor;
   private listeners: Map<string, Set<TypedListener<any>>> = new Map();
@@ -55,14 +56,15 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
 
   constructor(
     bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>,
-    initialState: StateOf<TActor>,
+    stateShape: StateOf<TActor>,
     actorClass: new (...args: any[]) => TActor
   ) {
     this.bus = bus;
     this.actorClass = actorClass;
-    this._state = initialState;
+    this.stateShape = stateShape;
+    this._state = {} as StateOf<TActor>;
     this.actions = this.createActionProxy();
-    this.subscribeToStateUpdates();
+    this.requestStateHydration();
   }
 
   get state(): StateOf<TActor> {
@@ -115,14 +117,16 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
 
   /**
    * Subscribe to all state property events to keep local cache updated
+   * Uses state shape to ensure all properties (including optional) are subscribed
    */
   private subscribeToStateUpdates(): void {
-    // Subscribe to each state property key
-    for (const key in this._state) {
+    // Subscribe to each state property key from state shape
+    for (const key in this.stateShape) {
       const callback = (value: any) => {
         // Type-safe state update via index signature
         (this._state as Record<string, unknown>)[key] = value;
       };
+
 
       this.bus.on(key as keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>, callback);
 
@@ -132,6 +136,45 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
       }
       this.listeners.get(key)!.add(callback);
     }
+  }
+
+  /**
+   * Request initial state hydration from the actor
+   */
+  private requestStateHydration(): void {
+    // Subscribe to __state responses
+    this.bus.on('__state' as any, (state: StateOf<TActor>) => {
+      this.hydrateState(state);
+    });
+
+    // Request state from actor
+    this.bus.emit('__state-request' as any, undefined);
+  }
+
+  /**
+   * Hydrate the local state cache with the full state from the actor
+   * Called when receiving state response from actor
+   */
+  hydrateState(state: StateOf<TActor>): void {
+    console.log('[ActorClient.hydrateState] Called with state:', state);
+    console.log('[ActorClient.hydrateState] Current _state before:', this._state);
+
+    this._state = state;
+    this.stateShape = state;
+
+    console.log('[ActorClient.hydrateState] Updated _state to:', this._state);
+
+    // Subscribe to state updates now that we have the actual state shape
+    // This is called exactly once after receiving the state response
+    console.log('[ActorClient.hydrateState] Calling subscribeToStateUpdates');
+    this.subscribeToStateUpdates();
+
+    // Emit __hydrated event to notify consumers (like React hooks) that state is ready
+    // Consumers can then subscribe to individual state properties
+    console.log('[ActorClient.hydrateState] Emitting __hydrated event');
+    this.bus.emit('__hydrated' as any, state);
+
+    console.log('[ActorClient.hydrateState] Done');
   }
 
   /**

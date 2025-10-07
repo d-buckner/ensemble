@@ -59,6 +59,19 @@ export class MainBus extends ThreadBus {
   handleWorkerMessage(data: ArrayBuffer | Uint8Array): void {
     try {
       const { actorId, eventName, payload } = unpack(new Uint8Array(data));
+
+      // Special handling for __state messages - route to ActorClient
+      if (eventName === '__state') {
+        const client = this.actorSystem.getClientByActorId(actorId);
+        if (client) {
+          console.log(`[MainBus] Hydrating state for ${actorId}:`, payload);
+          client.hydrateState(payload);
+        } else {
+          console.warn(`MainBus: No client found for actor ${actorId} to hydrate state`);
+        }
+        return;
+      }
+
       this.receive(actorId, eventName, payload);
     } catch (error) {
       console.error('MainBus: Failed to handle worker message', error);
