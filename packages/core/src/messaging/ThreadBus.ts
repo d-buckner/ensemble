@@ -24,6 +24,7 @@ export abstract class ThreadBus {
     eventName: string,
     callback: (payload: unknown) => void
   ): void {
+    console.log(`[ThreadBus] on() - actorId: ${actorId}, eventName: ${eventName}`);
     if (!this.listeners[actorId]) {
       this.listeners[actorId] = {};
     }
@@ -34,6 +35,7 @@ export abstract class ThreadBus {
     }
 
     actorListeners[eventName].add(callback);
+    console.log(`[ThreadBus] Registered listener. Total for ${actorId}.${eventName}: ${actorListeners[eventName].size}`);
   }
 
   off(
@@ -49,7 +51,12 @@ export abstract class ThreadBus {
     eventName: string,
     payload: unknown
   ): void {
-    this.listeners[actorId]?.[eventName]?.forEach(callback => callback(payload));
+    const listenerCount = this.listeners[actorId]?.[eventName]?.size || 0;
+    console.log(`[ThreadBus] emit() - actorId: ${actorId}, eventName: ${eventName}, listeners: ${listenerCount}`);
+    this.listeners[actorId]?.[eventName]?.forEach(callback => {
+      console.log(`[ThreadBus] Calling listener for ${actorId}.${eventName}`);
+      callback(payload);
+    });
     this.post(actorId, eventName, payload);
   }
 

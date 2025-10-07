@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import ActorSystem from './ActorSystem';
-import { MAIN_THREAD_ID } from '../constants';
 import { Actor } from './Actor';
 import { createActorToken } from './ActorToken';
 import type { ActorToken } from './ActorToken';
@@ -74,7 +73,6 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        threadId: MAIN_THREAD_ID,
         options: {},
       });
 
@@ -90,7 +88,6 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        threadId: MAIN_THREAD_ID,
         options: {},
       });
 
@@ -98,7 +95,6 @@ describe('ActorSystem', () => {
       system.register({
         token: dependentToken,
         actor: DependentActor,
-        threadId: MAIN_THREAD_ID,
         options: {},
         dependencies: {
           mockActor: mockToken,
@@ -116,7 +112,6 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        threadId: MAIN_THREAD_ID,
         options: {},
       });
 
@@ -124,7 +119,6 @@ describe('ActorSystem', () => {
         system.register({
           token: mockToken,
           actor: MockActor,
-          threadId: MAIN_THREAD_ID,
           options: {},
         })
       ).toThrow('Cannot register actor that is already registered: mock');
@@ -135,7 +129,6 @@ describe('ActorSystem', () => {
         system.register({
           token: dependentToken,
           actor: DependentActor,
-          threadId: MAIN_THREAD_ID,
           options: {},
           dependencies: {
             mockActor: mockToken,
@@ -150,7 +143,6 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        threadId: MAIN_THREAD_ID,
         options: {},
       });
 
@@ -175,14 +167,12 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        threadId: MAIN_THREAD_ID,
         options: {},
       });
 
       system.register({
         token: dependentToken,
         actor: DependentActor,
-        threadId: MAIN_THREAD_ID,
         options: {},
       });
 
@@ -201,7 +191,6 @@ describe('ActorSystem', () => {
       system.register({
         token: workerToken,
         actor: MockActor,
-        threadId: 'test-worker',
         options: {},
       });
 

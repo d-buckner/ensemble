@@ -94,11 +94,14 @@ export function useActor<TActor extends Actor>(
     };
 
     // Listen for hydration event
+    console.log('[useActor] Subscribing to __hydrated event');
     client.on(PROTOCOL_EVENTS.HYDRATED as any, subscribeToProperties);
     unsubscribes.push(() => client.off(PROTOCOL_EVENTS.HYDRATED as any, subscribeToProperties));
 
     // If already hydrated (main thread actors), subscribe immediately
+    console.log('[useActor] Current client.state:', client.state);
     if (Object.keys(client.state).length > 0) {
+      console.log('[useActor] State already hydrated, subscribing immediately');
       subscribeToProperties(client.state);
     }
 

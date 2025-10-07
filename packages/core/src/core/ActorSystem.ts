@@ -8,7 +8,7 @@ import { MAIN_THREAD_ID } from '../constants';
 import { MainBus } from '../messaging/MainBus';
 import { ActorBus } from '../messaging/ActorBus';
 import { ActorClient } from './ActorClient';
-import { getEffectMetadata } from './decorators';
+import { getEffectMetadata, getThreadMetadata } from './decorators';
 import type { AllEvents } from '../messaging/types';
 import type { ActorToken } from './ActorToken';
 import { pack } from 'msgpackr';
@@ -21,13 +21,13 @@ type OptionsOf<T> = T extends new (options: infer O) => any ? O : never;
 export interface ActorRegistration<T extends Actor = any> {
   token: ActorToken<T>;
   actor: new (options: OptionsOf<T>) => T;
-  threadId: string;
   options: OptionsOf<T>;
   dependencies?: Record<string, ActorToken<any>>; // { depName: token }
 }
 
 // Internal node representation in the graph
 interface Node<T extends Actor = any> extends ActorRegistration<T> {
+  threadId: string; // Extracted from @thread decorator or defaults to MAIN_THREAD_ID
   dependents: ActorToken<T>[];
 }
 
@@ -52,11 +52,14 @@ export default class ActorSystem {
   }
 
   register(registration: ActorRegistration): void {
-    const { token, actor, threadId, options, dependencies = {} } = registration;
+    const { token, actor, options, dependencies = {} } = registration;
 
     if (this.graph[token.id]) {
       throw new Error(`Cannot register actor that is already registered: ${token.id}`);
     }
+
+    // Extract threadId from @thread decorator, default to MAIN_THREAD_ID
+    const threadId = getThreadMetadata(actor) ?? MAIN_THREAD_ID;
 
     // Validate all dependency instances exist already
     Object.values(dependencies).forEach(depToken => {
@@ -112,6 +115,7 @@ export default class ActorSystem {
    * Instantiate a single actor and its dependencies
    */
   private async instantiateActor(actorId: string): Promise<void> {
+    console.log(`[ActorSystem] instantiateActor called for: ${actorId}`);
     const node = this.graph[actorId];
     if (!node) {
       throw new Error(`Actor ${actorId} not found in graph`);
@@ -119,8 +123,11 @@ export default class ActorSystem {
 
     const { token, actor: ActorClass, options, threadId, dependencies = {} } = node;
 
+    console.log(`[ActorSystem] threadId: ${threadId}, MAIN_THREAD_ID: ${MAIN_THREAD_ID}`);
+
     // Skip if already instantiated
     if (this.instances.has(token.symbol)) {
+      console.log(`[ActorSystem] Actor ${actorId} already instantiated, skipping`);
       return;
     }
 
@@ -134,6 +141,8 @@ export default class ActorSystem {
 
     // Handle worker thread actors
     if (threadId !== MAIN_THREAD_ID) {
+      console.log(`[ActorSystem] Handling as worker thread actor`);
+
       // Get worker for this thread
       const worker = this.workerRegistry.get(threadId);
       if (!worker) {
@@ -168,12 +177,15 @@ export default class ActorSystem {
     }
 
     // Create actor instance for main thread
+    console.log(`[ActorSystem] Creating main thread actor instance`);
     const actorInstance = new ActorClass(options);
 
     // Create actor bus with proper typing
+    console.log(`[ActorSystem] Creating actor bus`);
     const actorBus = new ActorBus<AllEvents<any, any>>(this.mainBus!, actorId);
 
     // Initialize actor
+    console.log(`[ActorSystem] Calling actor.__init()`);
     actorInstance.__init(actorBus, metadata);
 
     // Build dependencies map

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import ActorSystem from './core/ActorSystem';
 import { Actor } from './core/Actor';
 import { action, effect } from './core/decorators';
-import { MAIN_THREAD_ID } from './constants';
 import type { ActorClient } from './core/ActorClient';
 import { createActorToken } from './core/ActorToken';
 
@@ -124,7 +123,6 @@ describe('E2E Integration Test', () => {
     system.register({
       token: TodoToken,
       actor: TodoActor,
-      threadId: MAIN_THREAD_ID,
       options: {},
     });
 
@@ -132,7 +130,6 @@ describe('E2E Integration Test', () => {
     system.register({
       token: StatsToken,
       actor: StatsActor,
-      threadId: MAIN_THREAD_ID,
       options: {},
       dependencies: {
         todoActor: TodoToken,

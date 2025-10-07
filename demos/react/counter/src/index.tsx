@@ -15,7 +15,6 @@ async function main() {
   system.register({
     token: CounterToken,
     actor: CounterActor,
-    threadId: 'counter-worker',
     options: {}
   });
 
