@@ -24,7 +24,6 @@ export abstract class ThreadBus {
     eventName: string,
     callback: (payload: unknown) => void
   ): void {
-    console.log('adding listner:', actorId, eventName);
     if (!this.listeners[actorId]) {
       this.listeners[actorId] = {};
     }
@@ -50,7 +49,6 @@ export abstract class ThreadBus {
     eventName: string,
     payload: unknown
   ): void {
-    console.log('emitting message:', actorId, eventName);
     this.listeners[actorId]?.[eventName]?.forEach(callback => callback(payload));
     this.post(actorId, eventName, payload);
   }
@@ -64,8 +62,6 @@ export abstract class ThreadBus {
     eventName: string,
     payload: unknown
   ): void {
-    console.log('receiving message:', actorId, eventName);
-    console.log('threadbus listeners', this.listeners);
     this.listeners[actorId]?.[eventName]?.forEach(callback => callback(payload));
   }
 

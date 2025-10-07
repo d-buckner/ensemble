@@ -45,16 +45,9 @@ export abstract class Actor<
     const actor = this as unknown as Record<string, unknown>;
     const actionMetadata = getActionMetadata(this.constructor);
 
-    console.log('[Actor.__init] Setting up action listeners:', {
-      actorId: metadata.id,
-      actions: actionMetadata.map((a: any) => a.methodName),
-    });
-
     for (const { methodName } of actionMetadata) {
       if (typeof actor[methodName] === 'function') {
-        console.log(`[Actor.__init] Subscribing to action: ${methodName}`);
         this.bus.on(methodName, (args: unknown[]) => {
-          console.log(`[Actor] Action invoked: ${methodName}`, args);
           // Invoke the action method with the args array
           (actor[methodName] as (...args: unknown[]) => unknown)(...(args || []));
         });
@@ -63,7 +56,6 @@ export abstract class Actor<
 
     // Subscribe to state hydration requests from ActorClients
     this.bus.on('__state-request' as any, () => {
-      console.log(`[Actor] State request received for ${metadata.id}, sending current state`);
       this.bus.emit('__state' as any, this._state);
     });
   }

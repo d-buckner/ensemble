@@ -65,19 +65,14 @@ export function useActor<TActor extends Actor>(
     throw new Error(`Actor with id "${token.id}" not found`);
   }
 
-  console.log('[useActor] Initial client.state:', client.state);
-
   // Use a single state object that gets updated when any property changes
   const [state, setState] = useState<StateOf<TActor>>(client.state);
 
   useEffect(() => {
-    console.log('[useActor useEffect] Setting up');
-
     const unsubscribes: Array<() => void> = [];
 
     // Create a callback that triggers re-render by setting new state object
     const createCallback = (key: string) => (value: any) => {
-      console.log(`[useActor] Received update for ${key}:`, value);
       setState(prevState => ({
         ...prevState,
         [key]: value,
@@ -86,15 +81,12 @@ export function useActor<TActor extends Actor>(
 
     // Subscribe to state properties
     const subscribeToProperties = (hydratedState: StateOf<TActor>) => {
-      console.log('[useActor] Hydration received, subscribing to state properties:', Object.keys(hydratedState));
-
       // Update local state with hydrated state
       setState(hydratedState);
 
       // Subscribe to each property
       for (const key in hydratedState) {
         const callback = createCallback(key);
-        console.log(`[useActor] Subscribing to property: ${key}`);
         client.on(key as any, callback);
         unsubscribes.push(() => client.off(key as any, callback));
       }
@@ -106,18 +98,14 @@ export function useActor<TActor extends Actor>(
 
     // If already hydrated (main thread actors), subscribe immediately
     if (Object.keys(client.state).length > 0) {
-      console.log('[useActor] State already hydrated, subscribing immediately');
       subscribeToProperties(client.state);
     }
 
     // Cleanup subscriptions on unmount or when client changes
     return () => {
-      console.log('[useActor useEffect] Cleaning up subscriptions');
       unsubscribes.forEach(cleanup => cleanup());
     };
   }, [client]);
-
-  console.log('[useActor] Rendering with state:', state);
 
   return {
     actions: client.actions,

@@ -156,25 +156,16 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
    * Called when receiving state response from actor
    */
   hydrateState(state: StateOf<TActor>): void {
-    console.log('[ActorClient.hydrateState] Called with state:', state);
-    console.log('[ActorClient.hydrateState] Current _state before:', this._state);
-
     this._state = state;
     this.stateShape = state;
 
-    console.log('[ActorClient.hydrateState] Updated _state to:', this._state);
-
     // Subscribe to state updates now that we have the actual state shape
     // This is called exactly once after receiving the state response
-    console.log('[ActorClient.hydrateState] Calling subscribeToStateUpdates');
     this.subscribeToStateUpdates();
 
     // Emit __hydrated event to notify consumers (like React hooks) that state is ready
     // Consumers can then subscribe to individual state properties
-    console.log('[ActorClient.hydrateState] Emitting __hydrated event');
     this.bus.emit('__hydrated' as any, state);
-
-    console.log('[ActorClient.hydrateState] Done');
   }
 
   /**

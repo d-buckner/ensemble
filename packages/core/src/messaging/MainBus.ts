@@ -64,11 +64,11 @@ export class MainBus extends ThreadBus {
       if (eventName === '__state') {
         const client = this.actorSystem.getClientByActorId(actorId);
         if (client) {
-          console.log(`[MainBus] Hydrating state for ${actorId}:`, payload);
           client.hydrateState(payload);
-        } else {
-          console.warn(`MainBus: No client found for actor ${actorId} to hydrate state`);
+          return;
         }
+
+        console.warn(`MainBus: No client found for actor ${actorId} to hydrate state`);
         return;
       }
 
