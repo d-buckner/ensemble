@@ -23,6 +23,29 @@ const EFFECT_METADATA_KEY = Symbol('actor:effects');
 const THREAD_METADATA_KEY = Symbol('actor:thread');
 
 /**
+ * Wraps a method with context management for error tracking
+ */
+function wrapWithContext(
+  originalMethod: Function,
+  context: 'action' | 'effect',
+  methodName: string
+): Function {
+  return function(this: any, ...args: any[]) {
+    if (this.__setContext) {
+      this.__setContext(context, methodName);
+    }
+
+    try {
+      return originalMethod.apply(this, args);
+    } finally {
+      if (this.__clearContext) {
+        this.__clearContext();
+      }
+    }
+  };
+}
+
+/**
  * @action decorator - marks methods that can modify actor state
  * and be called via ActorClient
  */
@@ -41,23 +64,7 @@ export function action(
     methodName: propertyKey,
   });
 
-  // Wrap method to ensure it's called within actor context
-  const originalMethod = descriptor.value;
-  descriptor.value = function(this: any, ...args: any[]) {
-    // Set context for error tracking
-    if (this.__setContext) {
-      this.__setContext('action', propertyKey);
-    }
-
-    try {
-      return originalMethod.apply(this, args);
-    } finally {
-      if (this.__clearContext) {
-        this.__clearContext();
-      }
-    }
-  };
-
+  descriptor.value = wrapWithContext(descriptor.value, 'action', propertyKey);
   return descriptor;
 }
 
@@ -99,23 +106,7 @@ export function effect(...subscriptions: string[]) {
       eventSubscriptions,
     });
 
-    // Wrap method to ensure it's called within actor context
-    const originalMethod = descriptor.value;
-    descriptor.value = function(this: any, ...args: any[]) {
-      // Set context for error tracking
-      if (this.__setContext) {
-        this.__setContext('effect', propertyKey);
-      }
-
-      try {
-        return originalMethod.apply(this, args);
-      } finally {
-        if (this.__clearContext) {
-          this.__clearContext();
-        }
-      }
-    };
-
+    descriptor.value = wrapWithContext(descriptor.value, 'effect', propertyKey);
     return descriptor;
   };
 }

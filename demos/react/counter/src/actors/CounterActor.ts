@@ -4,7 +4,6 @@ export interface CounterState extends Record<string, unknown> {
   count: number;
 }
 
-@thread('counter-worker')
 export class CounterActor extends Actor<CounterState> {
   constructor() {
     super({ count: 0 });
