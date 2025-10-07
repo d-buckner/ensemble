@@ -2,6 +2,7 @@ import type { Actor } from './Actor';
 import type { AllEvents, TypedListener } from '../messaging/types';
 import type { IActorBus } from '../messaging/ActorBus';
 import { getActionMetadata } from './decorators';
+import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 
 // Extract state type from Actor class
 export type StateOf<T> = T extends Actor<infer S, any> ? S : never;
@@ -143,12 +144,12 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
    */
   private requestStateHydration(): void {
     // Subscribe to __state responses
-    this.bus.on('__state' as any, (state: StateOf<TActor>) => {
+    this.bus.on(PROTOCOL_EVENTS.STATE as any, (state: StateOf<TActor>) => {
       this.hydrateState(state);
     });
 
     // Request state from actor
-    this.bus.emit('__state-request' as any, undefined);
+    this.bus.emit(PROTOCOL_EVENTS.STATE_REQUEST as any, undefined);
   }
 
   /**
@@ -165,7 +166,7 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
 
     // Emit __hydrated event to notify consumers (like React hooks) that state is ready
     // Consumers can then subscribe to individual state properties
-    this.bus.emit('__hydrated' as any, state);
+    this.bus.emit(PROTOCOL_EVENTS.HYDRATED as any, state);
   }
 
   /**

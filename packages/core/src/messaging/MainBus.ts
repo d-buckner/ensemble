@@ -3,6 +3,7 @@ import { ThreadBus } from './ThreadBus';
 import type { WorkerRegistry } from '../threading/WorkerRegistry';
 import type ActorSystem from '../core/ActorSystem';
 import { MAIN_THREAD_ID } from '../constants';
+import { PROTOCOL_EVENTS } from './protocol-events';
 
 /**
  * MainBus runs on the main thread and routes messages between:
@@ -61,7 +62,7 @@ export class MainBus extends ThreadBus {
       const { actorId, eventName, payload } = unpack(new Uint8Array(data));
 
       // Special handling for __state messages - route to ActorClient
-      if (eventName === '__state') {
+      if (eventName === PROTOCOL_EVENTS.STATE) {
         const client = this.actorSystem.getClientByActorId(actorId);
         if (client) {
           client.hydrateState(payload);

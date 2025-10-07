@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, createElement } from 'react';
 import type { ReactNode } from 'react';
 import type { Actor, ActorSystem, ActorToken, StateOf, ActionsOf } from '@d-buckner/ensemble-core';
+import { PROTOCOL_EVENTS } from '@d-buckner/ensemble-core';
 
 interface UseActorReturn<TActor extends Actor> {
   actions: ActionsOf<TActor>;
@@ -93,8 +94,8 @@ export function useActor<TActor extends Actor>(
     };
 
     // Listen for hydration event
-    client.on('__hydrated' as any, subscribeToProperties);
-    unsubscribes.push(() => client.off('__hydrated' as any, subscribeToProperties));
+    client.on(PROTOCOL_EVENTS.HYDRATED as any, subscribeToProperties);
+    unsubscribes.push(() => client.off(PROTOCOL_EVENTS.HYDRATED as any, subscribeToProperties));
 
     // If already hydrated (main thread actors), subscribe immediately
     if (Object.keys(client.state).length > 0) {

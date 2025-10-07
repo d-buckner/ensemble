@@ -9,6 +9,7 @@ export type { ActorToken } from './core/ActorToken';
 
 // Constants
 export { MAIN_THREAD_ID } from './constants';
+export { PROTOCOL_EVENTS } from './messaging/protocol-events';
 
 // Worker infrastructure (for generated worker bundles)
 export { default as WorkerBus } from './messaging/WorkerBus';

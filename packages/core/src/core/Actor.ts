@@ -2,6 +2,7 @@ import { produceWithPatches, enablePatches, type Draft } from 'immer';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { EventMap, AllEvents } from '../messaging/types';
 import { getActionMetadata } from './decorators';
+import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 
 // Enable Immer patches plugin
 enablePatches();
@@ -55,8 +56,8 @@ export abstract class Actor<
     }
 
     // Subscribe to state hydration requests from ActorClients
-    this.bus.on('__state-request' as any, () => {
-      this.bus.emit('__state' as any, this._state);
+    this.bus.on(PROTOCOL_EVENTS.STATE_REQUEST as any, () => {
+      this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
     });
   }
 
