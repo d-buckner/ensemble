@@ -59,7 +59,7 @@ export class MainBus extends ThreadBus {
   handleWorkerMessage(data: ArrayBuffer | Uint8Array): void {
     try {
       const { actorId, eventName, payload } = unpack(new Uint8Array(data));
-      this.emit(actorId, eventName, payload);
+      this.receive(actorId, eventName, payload);
     } catch (error) {
       console.error('MainBus: Failed to handle worker message', error);
     }

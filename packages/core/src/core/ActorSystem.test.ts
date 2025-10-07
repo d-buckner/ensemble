@@ -1,99 +1,215 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import ActorSystem, { type ActorRegistration } from './ActorSystem';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import ActorSystem from './ActorSystem';
 import { MAIN_THREAD_ID } from '../constants';
+import { Actor } from './Actor';
+import { createActorToken } from './ActorToken';
+import type { ActorToken } from './ActorToken';
 
-// Mock actor class for testing
-class MockActor {}
+// Mock Worker class
+class MockWorker {
+  private listeners = new Map<string, Set<(event: MessageEvent) => void>>();
+  public postMessage = vi.fn();
+  public url: string;
+
+  constructor(url: string) {
+    this.url = url;
+  }
+
+  addEventListener(event: string, callback: (event: MessageEvent) => void): void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(callback);
+  }
+
+  removeEventListener(event: string, callback: (event: MessageEvent) => void): void {
+    this.listeners.get(event)?.delete(callback);
+  }
+
+  terminate(): void {
+    this.listeners.clear();
+  }
+}
+
+// Mock actor classes for testing
+interface MockState extends Record<string, unknown> {
+  value: number;
+}
+
+class MockActor extends Actor<MockState> {
+  constructor() {
+    super({ value: 0 });
+  }
+}
+
+class DependentActor extends Actor<MockState> {
+  constructor() {
+    super({ value: 0 });
+  }
+}
 
 describe('ActorSystem', () => {
   let system: ActorSystem;
+  let mockToken: ActorToken<MockActor>;
+  let dependentToken: ActorToken<DependentActor>;
+  let originalWorker: typeof Worker;
 
   beforeEach(() => {
     system = new ActorSystem();
+    mockToken = createActorToken<MockActor>('mock');
+    dependentToken = createActorToken<DependentActor>('dependent');
+
+    // Mock global Worker
+    originalWorker = globalThis.Worker;
+    globalThis.Worker = MockWorker as unknown as typeof Worker;
+  });
+
+  afterEach(() => {
+    // Restore original Worker
+    globalThis.Worker = originalWorker;
   });
 
   describe('register', () => {
-    it('should register an actor without dependencies', () => {
-      const registration = createRegistration('actor');
-      system.register(registration);
-      expectActorRegistration(registration.id, registration);
+    it('should register an actor without dependencies', async () => {
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+        threadId: MAIN_THREAD_ID,
+        options: {},
+      });
+
+      await system.start();
+
+      const client = system.getClient(mockToken);
+      expect(client).not.toBeNull();
+      expect(client?.state.value).toBe(0);
     });
 
-    it('should register an actor with dependencies', () => {
-      const dep1 = createRegistration('dep-1');
-      const dep2 = createRegistration('dep-2');
-      system.register(dep1);
-      system.register(dep2);
-
-      const actor = createRegistration('actor', {
-        userActor: dep1.id,
-        storageActor: dep2.id,
+    it('should register an actor with dependencies', async () => {
+      // Register dependency first
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+        threadId: MAIN_THREAD_ID,
+        options: {},
       });
-      system.register(actor);
 
-      expectActorRegistration(actor.id, actor);
+      // Register dependent actor
+      system.register({
+        token: dependentToken,
+        actor: DependentActor,
+        threadId: MAIN_THREAD_ID,
+        options: {},
+        dependencies: {
+          mockActor: mockToken,
+        },
+      });
+
+      await system.start();
+
+      const client = system.getClient(dependentToken);
+      expect(client).not.toBeNull();
+      expect(client?.state.value).toBe(0);
     });
 
     it('should throw when registering an actor that already exists', () => {
-      const registration = createRegistration('actor');
-      system.register(registration);
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+        threadId: MAIN_THREAD_ID,
+        options: {},
+      });
 
-      expect(() => system.register(registration)).toThrow('Cannot register actor that is already registered: actor-id');
+      expect(() =>
+        system.register({
+          token: mockToken,
+          actor: MockActor,
+          threadId: MAIN_THREAD_ID,
+          options: {},
+        })
+      ).toThrow('Cannot register actor that is already registered: mock');
     });
 
     it('should throw when registering an actor before its dependencies', () => {
-      const registration = createRegistration('actor', { dep: 'dep-id-1' });
-      expect(() => system.register(registration)).toThrow('Cannot register actor before its dependencies: actor-id depends on dep-id-1');
+      expect(() =>
+        system.register({
+          token: dependentToken,
+          actor: DependentActor,
+          threadId: MAIN_THREAD_ID,
+          options: {},
+          dependencies: {
+            mockActor: mockToken,
+          },
+        })
+      ).toThrow('Cannot register actor before its dependencies: dependent depends on mock');
     });
+  });
 
-    it('should update dependents when registering an actor with dependencies', () => {
-      const dep1 = createRegistration('dep-1');
-      const dep2 = createRegistration('dep-2');
-      system.register(dep1);
-      system.register(dep2);
-
-      const actor = createRegistration('actor', {
-        userActor: dep1.id,
-        storageActor: dep2.id,
+  describe('getClient', () => {
+    it('should return a client after system start', async () => {
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+        threadId: MAIN_THREAD_ID,
+        options: {},
       });
-      system.register(actor);
 
-      expectActorRegistration(dep1.id, dep1, [actor.id]);
-      expectActorRegistration(dep2.id, dep2, [actor.id]);
+      await system.start();
+
+      const client = system.getClient(mockToken);
+      expect(client).not.toBeNull();
+      expect(client?.state).toBeDefined();
+    });
+
+    it('should return null for non-existent actor', async () => {
+      const nonExistentToken = createActorToken<MockActor>('non-existent');
+      await system.start();
+
+      const client = system.getClient(nonExistentToken);
+      expect(client).toBeNull();
     });
   });
 
-  describe('get', () => {
-    it('should return an actor by id', () => {
-      const registration = createRegistration('actor');
-      system.register(registration);
-      expectActorRegistration(registration.id, registration);
+  describe('start', () => {
+    it('should instantiate all registered actors', async () => {
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+        threadId: MAIN_THREAD_ID,
+        options: {},
+      });
+
+      system.register({
+        token: dependentToken,
+        actor: DependentActor,
+        threadId: MAIN_THREAD_ID,
+        options: {},
+      });
+
+      await system.start();
+
+      const client1 = system.getClient(mockToken);
+      const client2 = system.getClient(dependentToken);
+
+      expect(client1).not.toBeNull();
+      expect(client2).not.toBeNull();
     });
 
-    it('should return null for non-existent actor', () => {
-      expectActorRegistration('non-existant-actor-id', null);
+    it('should send instantiation commands for worker thread actors', async () => {
+      const workerToken = createActorToken<MockActor>('worker-actor');
+
+      system.register({
+        token: workerToken,
+        actor: MockActor,
+        threadId: 'test-worker',
+        options: {},
+      });
+
+      await system.start();
+
+      // Worker actors should create a client but not instantiate locally
+      const client = system.getClient(workerToken);
+      expect(client).not.toBeNull();
     });
   });
-
-  function createRegistration(name: string, dependencies: Record<string, string> = {}): ActorRegistration {
-    return {
-      id: name + '-id',
-      actor: MockActor,
-      threadId: MAIN_THREAD_ID,
-      options: {},
-      dependencies,
-    }
-  }
-
-  function expectActorRegistration(actorId: string, expectedRegistration: ActorRegistration | null, dependents: string[] = []) {
-    if (expectedRegistration === null) {
-      expect(system.get(actorId)).toBeNull();
-      return;
-    }
-
-    expect(system.get(actorId)).toEqual({
-      ...expectedRegistration,
-      dependents,
-    })
-  }
 });

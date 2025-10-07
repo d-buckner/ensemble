@@ -20,6 +20,7 @@ export interface EffectMetadata {
 
 const ACTION_METADATA_KEY = Symbol('actor:actions');
 const EFFECT_METADATA_KEY = Symbol('actor:effects');
+const THREAD_METADATA_KEY = Symbol('actor:thread');
 
 /**
  * @action decorator - marks methods that can modify actor state
@@ -124,4 +125,27 @@ export function effect(...subscriptions: string[]) {
  */
 export function getEffectMetadata(actorClass: any): EffectMetadata[] {
   return Reflect.getMetadata(EFFECT_METADATA_KEY, actorClass.prototype) || [];
+}
+
+/**
+ * @thread decorator - marks which thread an actor should run on
+ *
+ * Usage: @thread('worker-1')
+ * class MyActor extends Actor { ... }
+ *
+ * If not specified, actors run on the main thread by default.
+ */
+export function thread(threadId: string) {
+  return function<T extends { new(...args: any[]): {} }>(constructor: T) {
+    Reflect.defineMetadata(THREAD_METADATA_KEY, threadId, constructor);
+    return constructor;
+  };
+}
+
+/**
+ * Extract thread metadata from an actor class
+ * Returns undefined if no @thread decorator was used (defaults to main thread)
+ */
+export function getThreadMetadata(actorClass: any): string | undefined {
+  return Reflect.getMetadata(THREAD_METADATA_KEY, actorClass);
 }

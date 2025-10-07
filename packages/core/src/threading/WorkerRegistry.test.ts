@@ -57,7 +57,16 @@ describe('WorkerRegistry', () => {
 
       const worker = registry.get('worker-1');
       expect(worker).toBeDefined();
-      expect((worker as unknown as MockWorker).url).toBe(WorkerRegistry.WORKER_PATH);
+      expect((worker as unknown as MockWorker).url).toBe('/workers/worker-1.js');
+    });
+
+    it('should use custom workerOutput directory when provided', () => {
+      const customRegistry = new WorkerRegistry('custom-workers');
+      customRegistry.add('worker-1');
+
+      const worker = customRegistry.get('worker-1');
+      expect(worker).toBeDefined();
+      expect((worker as unknown as MockWorker).url).toBe('/custom-workers/worker-1.js');
     });
 
     it('should throw when trying to register main thread', () => {
@@ -95,6 +104,32 @@ describe('WorkerRegistry', () => {
       expect(registry.has('worker-1')).toBe(true);
       expect(registry.has('worker-2')).toBe(true);
       expect(registry.has('worker-3')).toBe(true);
+    });
+
+    it('should load thread-specific worker bundles by threadId', () => {
+      registry.add('worker-1');
+      registry.add('compute');
+      registry.add('io-thread');
+
+      const worker1 = registry.get('worker-1') as unknown as MockWorker;
+      const workerCompute = registry.get('compute') as unknown as MockWorker;
+      const workerIo = registry.get('io-thread') as unknown as MockWorker;
+
+      expect(worker1.url).toBe('/workers/worker-1.js');
+      expect(workerCompute.url).toBe('/workers/compute.js');
+      expect(workerIo.url).toBe('/workers/io-thread.js');
+    });
+
+    it('should use custom workerOutput path for thread-specific bundles', () => {
+      const customRegistry = new WorkerRegistry('custom-workers');
+      customRegistry.add('worker-1');
+      customRegistry.add('database');
+
+      const worker1 = customRegistry.get('worker-1') as unknown as MockWorker;
+      const workerDb = customRegistry.get('database') as unknown as MockWorker;
+
+      expect(worker1.url).toBe('/custom-workers/worker-1.js');
+      expect(workerDb.url).toBe('/custom-workers/database.js');
     });
   });
 

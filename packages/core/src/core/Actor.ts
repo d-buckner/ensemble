@@ -16,10 +16,10 @@ export interface ActorMetadata {
 
 export abstract class Actor<
   TState extends UnknownObject = {},
-  TEvents extends EventMap = {},
+  TEvents extends EventMap = {}
 > {
+  public bus!: IActorBus<AllEvents<TState, TEvents>>;
   private _state: TState;
-  private bus!: IActorBus<AllEvents<TState, TEvents>>;
   private _metadata!: ActorMetadata;
 
   get metadata(): ActorMetadata {
@@ -39,17 +39,26 @@ export abstract class Actor<
     this.bus = bus;
     this._metadata = metadata;
 
-    // Subscribe to action invocations
-    this.bus.on('__action', (payload) => {
-      const { method, args } = payload;
-      // Dynamic method invocation from action proxy
-      const actor = this as unknown as Record<string, unknown>;
-      if (typeof actor[method] === 'function') {
-        (actor[method] as (...args: unknown[]) => unknown)(...args);
-      } else {
-        console.error(`Actor ${metadata.id}: Action method "${method}" not found`);
-      }
+    // Subscribe to action method invocations
+    // Each @action decorated method becomes an event listener
+    const actor = this as unknown as Record<string, unknown>;
+    const actionMetadata = Reflect.getMetadata('ensemble:actions', this.constructor) || [];
+
+    console.log('[Actor.__init] Setting up action listeners:', {
+      actorId: metadata.id,
+      actions: actionMetadata.map((a: any) => a.methodName),
     });
+
+    for (const { methodName } of actionMetadata) {
+      if (typeof actor[methodName] === 'function') {
+        console.log(`[Actor.__init] Subscribing to action: ${methodName}`);
+        this.bus.on(methodName, (args: unknown[]) => {
+          console.log(`[Actor] Action invoked: ${methodName}`, args);
+          // Invoke the action method with the args array
+          (actor[methodName] as (...args: unknown[]) => unknown)(...(args || []));
+        });
+      }
+    }
   }
 
   // Public state access (read-only)
@@ -125,6 +134,6 @@ export abstract class Actor<
   }
 
   // Lifecycle hooks (optional overrides)
-  protected onInit?(): void | Promise<void>;
-  protected onDestroy?(): void | Promise<void>;
+  public onInit?(): void | Promise<void>;
+  public onDestroy?(): void | Promise<void>;
 }

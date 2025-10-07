@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { action, effect, getActionMetadata, getEffectMetadata } from './decorators';
+import { action, effect, thread, getActionMetadata, getEffectMetadata, getThreadMetadata } from './decorators';
 import { Actor } from './Actor';
 
 describe('Decorators', () => {
@@ -172,6 +172,50 @@ describe('Decorators', () => {
       // Should have both base and derived actions
       expect(metadata.length).toBeGreaterThanOrEqual(1);
       expect(metadata.map(m => m.methodName)).toContain('derivedAction');
+    });
+  });
+
+  describe('@thread decorator', () => {
+    it('should store thread metadata on class', () => {
+      @thread('worker-1')
+      class TestActor extends Actor {
+        constructor() {
+          super({});
+        }
+      }
+
+      const threadId = getThreadMetadata(TestActor);
+      expect(threadId).toBe('worker-1');
+    });
+
+    it('should return undefined for actors without @thread decorator', () => {
+      class TestActor extends Actor {
+        constructor() {
+          super({});
+        }
+      }
+
+      const threadId = getThreadMetadata(TestActor);
+      expect(threadId).toBeUndefined();
+    });
+
+    it('should support different thread IDs', () => {
+      @thread('compute-thread')
+      class ComputeActor extends Actor {
+        constructor() {
+          super({});
+        }
+      }
+
+      @thread('io-thread')
+      class IoActor extends Actor {
+        constructor() {
+          super({});
+        }
+      }
+
+      expect(getThreadMetadata(ComputeActor)).toBe('compute-thread');
+      expect(getThreadMetadata(IoActor)).toBe('io-thread');
     });
   });
 });

@@ -1,5 +1,5 @@
 {
-  "name": "@ensemble/react",
+  "name": "@d-buckner/ensemble-react",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,7 +19,7 @@
     "react": "^18.0.0"
   },
   "dependencies": {
-    "@ensemble/core": "*"
+    "@d-buckner/ensemble-core": "*"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

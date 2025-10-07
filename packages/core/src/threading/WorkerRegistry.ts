@@ -3,9 +3,13 @@ import { MAIN_THREAD_ID } from '../constants';
 type MessageHandler = (data: ArrayBuffer | Uint8Array) => void;
 
 export class WorkerRegistry {
-  static readonly WORKER_PATH = '/js/worker.js';
   private registry: Record<string, Worker> = {};
   private messageHandler?: MessageHandler;
+  private workerOutput: string;
+
+  constructor(workerOutput: string = 'workers') {
+    this.workerOutput = workerOutput;
+  }
 
   /**
    * Set the message handler that will be called when workers send messages
@@ -31,7 +35,9 @@ export class WorkerRegistry {
       throw new Error(`Cannot register worker as worker with threadId that already exists: ${threadId}`);
     }
 
-    const worker = new Worker(WorkerRegistry.WORKER_PATH);
+    // Construct thread-specific worker bundle path
+    const workerPath = `/${this.workerOutput}/${threadId}.js`;
+    const worker = new Worker(workerPath);
 
     // Attach message handler if already set
     if (this.messageHandler) {

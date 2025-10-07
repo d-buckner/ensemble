@@ -10,22 +10,25 @@ import { ActorBus } from '../messaging/ActorBus';
 import { ActorClient } from './ActorClient';
 import { getEffectMetadata } from './decorators';
 import type { AllEvents } from '../messaging/types';
+import type { ActorToken } from './ActorToken';
+import { pack } from 'msgpackr';
+import type { InstantiateCommand } from '../threading/WorkerRuntime';
 
 // Extract options type from Actor constructor
 type OptionsOf<T> = T extends new (options: infer O) => any ? O : never;
 
 // Registration interface for actor instances
 export interface ActorRegistration<T extends Actor = any> {
-  id: string;
+  token: ActorToken<T>;
   actor: new (options: OptionsOf<T>) => T;
   threadId: string;
   options: OptionsOf<T>;
-  dependencies?: Record<string, string>; // { depName: instanceId }
+  dependencies?: Record<string, ActorToken<any>>; // { depName: token }
 }
 
 // Internal node representation in the graph
-interface Node extends ActorRegistration {
-  dependents: string[];
+interface Node<T extends Actor = any> extends ActorRegistration<T> {
+  dependents: ActorToken<T>[];
 }
 
 interface Graph {
@@ -33,32 +36,40 @@ interface Graph {
 }
 
 
+export interface ActorSystemOptions {
+  workerOutput?: string;
+}
+
 export default class ActorSystem {
   private graph: Graph = {};
-  private workerRegistry: WorkerRegistry = new WorkerRegistry();
+  private workerRegistry: WorkerRegistry;
   private mainBus?: MainBus;
-  private instances: Map<string, Actor> = new Map();
-  private clients: Map<string, ActorClient<any>> = new Map();
+  private instances: Map<symbol, Actor> = new Map();
+  private clients: Map<symbol, ActorClient<any>> = new Map();
+
+  constructor(options: ActorSystemOptions = {}) {
+    this.workerRegistry = new WorkerRegistry(options.workerOutput);
+  }
 
   register(registration: ActorRegistration): void {
-    const { id, actor, threadId, options, dependencies = {} } = registration;
+    const { token, actor, threadId, options, dependencies = {} } = registration;
 
-    if (this.graph[id]) {
-      throw new Error(`Cannot register actor that is already registered: ${id}`);
+    if (this.graph[token.id]) {
+      throw new Error(`Cannot register actor that is already registered: ${token.id}`);
     }
 
     // Validate all dependency instances exist already
-    Object.values(dependencies).forEach(depId => {
-      if (!this.graph[depId]) {
-        throw new Error(`Cannot register actor before its dependencies: ${id} depends on ${depId}`);
+    Object.values(dependencies).forEach(depToken => {
+      if (!this.graph[depToken.id]) {
+        throw new Error(`Cannot register actor before its dependencies: ${token.id} depends on ${depToken.id}`);
       }
 
       // Track this actor as a dependent
-      this.graph[depId].dependents.push(id);
+      this.graph[depToken.id].dependents.push(token);
     });
 
-    this.graph[id] = {
-      id,
+    this.graph[token.id] = {
+      token,
       actor,
       threadId,
       options,
@@ -101,41 +112,75 @@ export default class ActorSystem {
    * Instantiate a single actor and its dependencies
    */
   private async instantiateActor(actorId: string): Promise<void> {
-    // Skip if already instantiated
-    if (this.instances.has(actorId)) {
-      return;
-    }
-
     const node = this.graph[actorId];
     if (!node) {
       throw new Error(`Actor ${actorId} not found in graph`);
     }
 
-    const { actor: ActorClass, options, threadId, dependencies = {} } = node;
+    const { token, actor: ActorClass, options, threadId, dependencies = {} } = node;
 
-    // Create actor instance
-    const actorInstance = new ActorClass(options);
-
-    // Create actor bus with proper typing
-    const actorBus = new ActorBus<AllEvents<any, any>>(this.mainBus!, actorId);
+    // Skip if already instantiated
+    if (this.instances.has(token.symbol)) {
+      return;
+    }
 
     // Create metadata
     const metadata: ActorMetadata = {
       id: actorId,
       name: ActorClass.name,
       threadId,
-      dependencies: Object.values(dependencies),
+      dependencies: Object.values(dependencies).map(t => t.id),
     };
+
+    // Handle worker thread actors
+    if (threadId !== MAIN_THREAD_ID) {
+      // Get worker for this thread
+      const worker = this.workerRegistry.get(threadId);
+      if (!worker) {
+        throw new Error(`Worker not found for threadId: ${threadId}`);
+      }
+
+      // Send instantiation command to worker (only serializable data)
+      const command: InstantiateCommand = {
+        type: 'instantiate',
+        actorId,
+        className: ActorClass.name,
+        options,
+        metadata: {
+          id: metadata.id,
+          name: metadata.name,
+          threadId: metadata.threadId,
+          dependencies: metadata.dependencies,
+        },
+      };
+
+      worker.postMessage(pack(command));
+
+      // Create actor bus for communication with worker
+      const actorBus = new ActorBus<AllEvents<any, any>>(this.mainBus!, actorId);
+
+      // Create ActorClient (state will be managed by worker)
+      const client = new ActorClient(actorBus, options as any, ActorClass);
+      this.clients.set(token.symbol, client);
+
+      return;
+    }
+
+    // Create actor instance for main thread
+    const actorInstance = new ActorClass(options);
+
+    // Create actor bus with proper typing
+    const actorBus = new ActorBus<AllEvents<any, any>>(this.mainBus!, actorId);
 
     // Initialize actor
     actorInstance.__init(actorBus, metadata);
 
     // Build dependencies map
     const deps: Record<string, ActorClient<any>> = {};
-    for (const [depName, depId] of Object.entries(dependencies)) {
-      const depClient = this.clients.get(depId);
+    for (const [depName, depToken] of Object.entries(dependencies)) {
+      const depClient = this.clients.get(depToken.symbol);
       if (!depClient) {
-        throw new Error(`Dependency ${depId} not instantiated for actor ${actorId}`);
+        throw new Error(`Dependency ${depToken.id} not instantiated for actor ${actorId}`);
       }
       deps[depName] = depClient;
     }
@@ -147,11 +192,11 @@ export default class ActorSystem {
     }
 
     // Store instance
-    this.instances.set(actorId, actorInstance);
+    this.instances.set(token.symbol, actorInstance);
 
     // Create and store ActorClient
     const client = new ActorClient(actorBus, actorInstance.state, ActorClass);
-    this.clients.set(actorId, client);
+    this.clients.set(token.symbol, client);
 
     // Setup effects - subscribe to dependency events
     this.setupEffects(actorInstance, ActorClass, deps);
@@ -197,8 +242,10 @@ export default class ActorSystem {
 
   /**
    * Get an ActorClient for a registered actor (for external consumers)
+   * The actor type is automatically inferred from the token.
    */
-  getClient<T extends Actor>(actorId: string): ActorClient<T> | null {
-    return this.clients.get(actorId) ?? null;
+  getClient<T extends Actor>(token: ActorToken<T>): ActorClient<T> | null {
+    const client = this.clients.get(token.symbol);
+    return client ? (client as ActorClient<T>) : null;
   }
 }

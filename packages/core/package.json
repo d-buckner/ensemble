@@ -1,5 +1,5 @@
 {
-  "name": "@ensemble/core",
+  "name": "@d-buckner/ensemble-core",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./worker": {
+      "types": "./dist/threading/worker-entry.d.ts",
+      "default": "./dist/threading/worker-entry.js"
     }
   },
   "scripts": {
@@ -20,6 +24,7 @@
   "devDependencies": {
     "typescript": "~5.9.3",
     "vite": "^7.1.7",
+    "vite-plugin-dts": "^4.5.4",
     "vitest": "^3.2.4"
   },
   "dependencies": {

@@ -4,6 +4,7 @@ import { Actor } from './core/Actor';
 import { action, effect } from './core/decorators';
 import { MAIN_THREAD_ID } from './constants';
 import type { ActorClient } from './core/ActorClient';
+import { createActorToken } from './core/ActorToken';
 
 /**
  * E2E Integration Test
@@ -107,6 +108,10 @@ class StatsActor extends Actor<StatsState> {
 // Tests
 // ============================================================================
 
+// Create tokens for actors
+const TodoToken = createActorToken<TodoActor>('todo');
+const StatsToken = createActorToken<StatsActor>('stats');
+
 describe('E2E Integration Test', () => {
   let system: ActorSystem;
   let todoClient: ActorClient<TodoActor>;
@@ -117,7 +122,7 @@ describe('E2E Integration Test', () => {
 
     // Register TodoActor
     system.register({
-      id: 'todo-actor',
+      token: TodoToken,
       actor: TodoActor,
       threadId: MAIN_THREAD_ID,
       options: {},
@@ -125,12 +130,12 @@ describe('E2E Integration Test', () => {
 
     // Register StatsActor with dependency on TodoActor
     system.register({
-      id: 'stats-actor',
+      token: StatsToken,
       actor: StatsActor,
       threadId: MAIN_THREAD_ID,
       options: {},
       dependencies: {
-        todoActor: 'todo-actor',
+        todoActor: TodoToken,
       },
     });
 
@@ -138,8 +143,8 @@ describe('E2E Integration Test', () => {
     await system.start();
 
     // Get clients
-    todoClient = system.getClient<TodoActor>('todo-actor')!;
-    statsClient = system.getClient<StatsActor>('stats-actor')!;
+    todoClient = system.getClient(TodoToken)!;
+    statsClient = system.getClient(StatsToken)!;
   });
 
   it('should initialize actors with correct initial state', () => {

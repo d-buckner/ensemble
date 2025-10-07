@@ -14,11 +14,10 @@ A **Vite plugin is required** to:
    - Worker-specific code (`WorkerBus`, worker initialization)
    - Shared code (Actor classes, message serialization, etc.)
    - Dependencies (`msgpackr`, `immer`, etc.)
-4. Output worker bundles to the correct path (`/js/worker.js` as referenced in `WorkerRegistry.WORKER_PATH`)
 
 ## Implementation Options
 
-### Option 1: Custom Vite Plugin
+### Option 1: Custom Vite Plugin (accepted)
 
 Create a custom plugin that:
 - Identifies worker entry points

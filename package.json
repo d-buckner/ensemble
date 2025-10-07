@@ -4,13 +4,17 @@
   "version": "0.0.0",
   "packageManager": "npm@10.0.0",
   "workspaces": [
+    "demos/*/*",
     "packages/*"
   ],
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "dev": "turbo run dev"
+    "dev": "turbo run dev",
+    "demo:react:counter": "turbo run dev --filter=demo-react-counter",
+    "demo:react:traffic-monitor": "turbo run dev --filter=demo-react-traffic-monitor",
+    "demo:solidjs:counter": "turbo run dev --filter=demo-solidjs-counter"
   },
   "devDependencies": {
     "turbo": "^2.3.3"
