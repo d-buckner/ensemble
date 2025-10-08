@@ -54,9 +54,10 @@ export class DashboardActor extends Actor<DashboardState> {
   };
 
   protected declare deps: DashboardDeps;
-  private metricQueue: ProcessedMetrics[] = [];
-  private replayInterval: number | null = null;
-  private readonly replayRate = 10; // Add one point every 10ms for smooth animation
+  private readonly samplingRate = 10; // Sample every Nth metric to reduce chart density
+  private buffer: ProcessedMetrics[] = [];
+  private animationFrameId: number | null = null;
+  private readonly pointsPerFrame = 2; // Add 2 points per frame at 60fps = ~120 points/sec
 
   constructor() {
     super(DashboardActor.initialState);
@@ -64,60 +65,78 @@ export class DashboardActor extends Actor<DashboardState> {
 
   onInit(): void {
     console.log('[DashboardActor] onInit called, subscribing to processedBatch and latestAnomaly');
-    this.deps.statistics.on('processedBatch', this.updateChartData.bind(this));
+    this.deps.statistics.on('processedBatch', this.bufferBatch.bind(this));
     this.deps.anomalyDetection.on('latestAnomaly', this.addAnomaly.bind(this));
-    this.startReplay();
+    this.startAnimation();
   }
 
   onDestroy(): void {
-    this.deps.statistics.off('processedBatch', this.updateChartData.bind(this));
+    this.deps.statistics.off('processedBatch', this.bufferBatch.bind(this));
     this.deps.anomalyDetection.off('latestAnomaly', this.addAnomaly.bind(this));
-    this.stopReplay();
+    this.stopAnimation();
   }
 
-  private startReplay(): void {
-    if (this.replayInterval !== null) return;
+  private startAnimation(): void {
+    const animate = () => {
+      this.drainBuffer();
+      this.animationFrameId = requestAnimationFrame(animate);
+    };
+    this.animationFrameId = requestAnimationFrame(animate);
+  }
 
-    this.replayInterval = setInterval(() => {
-      if (this.metricQueue.length === 0) return;
+  private stopAnimation(): void {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+  }
 
-      // Take the next metric from the queue
-      const metric = this.metricQueue.shift()!;
+  private bufferBatch(batch: ProcessedBatch | null): void {
+    console.log('[DashboardActor] bufferBatch called with:', batch ? `${batch.metrics.length} metrics` : 'null');
+    if (!batch) return;
 
-      this.setState(draft => {
-        // Update current metrics
-        draft.currentMetrics = metric;
+    // Sample metrics to avoid overwhelming the buffer
+    // Take every Nth metric plus the last one (most recent)
+    const sampledMetrics = batch.metrics.filter((_, i) =>
+      i % this.samplingRate === 0 || i === batch.metrics.length - 1
+    );
 
-        // Add new point to time series
+    // Add to buffer for smooth consumption
+    this.buffer.push(...sampledMetrics);
+
+    // Keep buffer size reasonable (max 500 points = ~5 seconds of data)
+    if (this.buffer.length > 500) {
+      this.buffer = this.buffer.slice(-500);
+    }
+  }
+
+  private drainBuffer(): void {
+    if (this.buffer.length === 0) return;
+
+    // Take up to pointsPerFrame metrics from buffer
+    const count = Math.min(this.pointsPerFrame, this.buffer.length);
+    const metricsToAdd = this.buffer.splice(0, count);
+
+    this.setState(draft => {
+      // Update current metrics to the latest we're adding
+      draft.currentMetrics = metricsToAdd[metricsToAdd.length - 1];
+
+      // Add points to time series
+      for (const metric of metricsToAdd) {
         this.addPoint(draft.chartData.cpuSeries, metric.timestamp, metric.cpu.overall);
         this.addPoint(draft.chartData.memorySeries, metric.timestamp, metric.memory.usedPercent);
         this.addPoint(draft.chartData.latencySeries, metric.timestamp, metric.latency.p95);
         this.addPoint(draft.chartData.throughputSeries, metric.timestamp, metric.throughput.requestsPerSec);
         this.addPoint(draft.chartData.errorRateSeries, metric.timestamp, metric.throughput.errorRate);
+      }
 
-        // Trim to window size
-        this.trimSeries(draft.chartData.cpuSeries, draft.windowSize);
-        this.trimSeries(draft.chartData.memorySeries, draft.windowSize);
-        this.trimSeries(draft.chartData.latencySeries, draft.windowSize);
-        this.trimSeries(draft.chartData.throughputSeries, draft.windowSize);
-        this.trimSeries(draft.chartData.errorRateSeries, draft.windowSize);
-      });
-    }, this.replayRate) as unknown as number;
-  }
-
-  private stopReplay(): void {
-    if (this.replayInterval !== null) {
-      clearInterval(this.replayInterval);
-      this.replayInterval = null;
-    }
-  }
-
-  private updateChartData(batch: ProcessedBatch | null): void {
-    console.log('[DashboardActor] updateChartData called with:', batch ? `${batch.metrics.length} metrics` : 'null');
-    if (!batch) return;
-
-    // Queue all metrics for replay animation
-    this.metricQueue.push(...batch.metrics);
+      // Trim to window size
+      this.trimSeries(draft.chartData.cpuSeries, draft.windowSize);
+      this.trimSeries(draft.chartData.memorySeries, draft.windowSize);
+      this.trimSeries(draft.chartData.latencySeries, draft.windowSize);
+      this.trimSeries(draft.chartData.throughputSeries, draft.windowSize);
+      this.trimSeries(draft.chartData.errorRateSeries, draft.windowSize);
+    });
   }
 
   private addAnomaly(anomaly: Anomaly | null): void {

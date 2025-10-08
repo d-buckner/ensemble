@@ -174,6 +174,11 @@ export class TestActor extends Actor {
         await plugin.configResolved.call({}, mockConfig, {} as any);
       }
 
+      // Call buildStart to populate workerPaths
+      if (plugin.buildStart) {
+        await (plugin.buildStart as Function).call({});
+      }
+
       const code = await (plugin.load as Function).call(
         {},
         '\0virtual:ensemble-worker-manifest'
@@ -336,10 +341,20 @@ export class Worker2Actor extends Actor {
 
       // For this unit test, we mock the bundle generation
       // Real bundling is tested in integration/end-to-end tests
-      // Populate bundles through the test interface
+      // Populate bundles and paths through the test interface
       if (plugin._test) {
-        plugin._test.workerBundles.set('worker-1', '// bundled worker-1');
-        plugin._test.workerBundles.set('worker-2', '// bundled worker-2');
+        const bundledCode1 = '// bundled worker-1';
+        const bundledCode2 = '// bundled worker-2';
+
+        plugin._test.workerBundles.set('worker-1', bundledCode1);
+        plugin._test.workerBundles.set('worker-2', bundledCode2);
+
+        // Compute hashes like buildStart would
+        const hash1 = require('crypto').createHash('sha256').update(bundledCode1).digest('hex').substring(0, 8);
+        const hash2 = require('crypto').createHash('sha256').update(bundledCode2).digest('hex').substring(0, 8);
+
+        plugin._test.workerPaths['worker-1'] = `./workers/worker-1-${hash1}.js`;
+        plugin._test.workerPaths['worker-2'] = `./workers/worker-2-${hash2}.js`;
       }
 
       if (plugin.generateBundle) {
@@ -403,9 +418,14 @@ export class TestActor extends Actor {
 
       await plugin.configResolved!.call({}, mockConfig, {} as any);
 
-      // Populate bundles through the test interface
+      // Populate bundles and paths through the test interface
       if (plugin._test) {
-        plugin._test.workerBundles.set('compute', '// bundled compute worker');
+        const bundledCode = '// bundled compute worker';
+        plugin._test.workerBundles.set('compute', bundledCode);
+
+        // Compute hash like buildStart would
+        const hash = require('crypto').createHash('sha256').update(bundledCode).digest('hex').substring(0, 8);
+        plugin._test.workerPaths['compute'] = `./custom-dir/compute-${hash}.js`;
       }
 
       if (plugin.generateBundle) {

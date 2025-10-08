@@ -18,8 +18,9 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
   let actorsByThread: Map<string, ActorInfo[]> = new Map();
   let allActors: Map<string, ActorInfo> = new Map();
   let workerBundles: Map<string, string> = new Map();
+  let workerPaths: Record<string, string> = {};
 
-  const plugin: Plugin & { _test?: { workerBundles: Map<string, string> } } = {
+  const plugin: Plugin & { _test?: { workerBundles: Map<string, string>; workerPaths: Record<string, string> } } = {
     name: 'ensemble-vite-plugin',
 
     async configResolved(resolvedConfig) {
@@ -43,11 +44,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
 
     load(id) {
       if (id === RESOLVED_MANIFEST_ID) {
-        // In dev mode, return simple paths (Vite handles cache busting)
-        const workerPaths: Record<string, string> = {};
-        for (const threadId of actorsByThread.keys()) {
-          workerPaths[threadId] = `./${workerOutput}/${threadId}.js`;
-        }
+        // Return worker paths (with hashes in production, simple paths in dev)
         return `export const WORKER_PATHS = ${JSON.stringify(workerPaths, null, 2)};`;
       }
 
@@ -64,7 +61,16 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
     },
 
     async buildStart() {
-      // Bundle each virtual worker module
+      // In dev mode, use simple paths (Vite handles cache busting)
+      if (config.command === 'serve') {
+        workerPaths = {};
+        for (const threadId of actorsByThread.keys()) {
+          workerPaths[threadId] = `./${workerOutput}/${threadId}.js`;
+        }
+        return;
+      }
+
+      // In build mode, bundle workers and compute hashed paths
       for (const threadId of actorsByThread.keys()) {
         const virtualModuleId = RESOLVED_VIRTUAL_PREFIX + threadId;
 
@@ -81,7 +87,13 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
             config.root
           );
 
-          workerBundles.set(threadId, bundleResult.code);
+          const bundledCode = bundleResult.code;
+          workerBundles.set(threadId, bundledCode);
+
+          // Compute content hash for production builds
+          const hash = createHash('sha256').update(bundledCode).digest('hex').substring(0, 8);
+          const fileName = `${workerOutput}/${threadId}-${hash}.js`;
+          workerPaths[threadId] = `./${fileName}`;
         } catch (error) {
           this.error(`Failed to bundle worker for thread "${threadId}": ${error}`);
         }
@@ -94,25 +106,20 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
         return;
       }
 
-      // Emit worker bundles as assets with content hash
-      const workerPaths: Record<string, string> = {};
-
+      // Emit worker bundles as assets using pre-computed hashed paths
       for (const [threadId, bundledCode] of workerBundles.entries()) {
-        // Compute content hash
-        const hash = createHash('sha256').update(bundledCode).digest('hex').substring(0, 8);
-        const fileName = `${workerOutput}/${threadId}-${hash}.js`;
+        const workerPath = workerPaths[threadId];
+        // Remove leading './' to get the fileName
+        const fileName = workerPath.startsWith('./') ? workerPath.slice(2) : workerPath;
 
         this.emitFile({
           type: 'asset',
           fileName,
           source: bundledCode,
         });
-
-        // Store path for manifest (relative from HTML page)
-        workerPaths[threadId] = `./${fileName}`;
       }
 
-      // Generate and emit worker manifest
+      // Emit worker manifest for reference (though virtual module is inlined)
       const manifestCode = `export const WORKER_PATHS = ${JSON.stringify(workerPaths, null, 2)};`;
 
       this.emitFile({
@@ -129,7 +136,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
   };
 
   // Expose internal state for testing
-  plugin._test = { workerBundles };
+  plugin._test = { workerBundles, workerPaths };
 
   return plugin;
 }
