@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "test": "turbo run test",
+    "test": "node scripts/test-summary.js",
+    "test:raw": "turbo run test",
     "typecheck": "turbo run typecheck",
     "dev": "turbo run dev",
     "demo:react:counter": "turbo run dev --filter=demo-react-counter",

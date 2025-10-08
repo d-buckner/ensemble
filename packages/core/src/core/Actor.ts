@@ -38,7 +38,6 @@ export abstract class Actor<
 
   // Framework injection (called after construction)
   __init(bus: IActorBus<AllEvents<TState, TEvents>>, metadata: ActorMetadata): void {
-    console.log(`[Actor.__init] Called for actor: ${metadata.id}`);
     this.bus = bus;
     this._metadata = metadata;
 
@@ -47,10 +46,8 @@ export abstract class Actor<
     const actor = this as unknown as Record<string, unknown>;
     const actionMetadata = getActionMetadata(this.constructor);
 
-    console.log(`[Actor.__init] Found ${actionMetadata.length} actions`);
     for (const { methodName } of actionMetadata) {
       if (typeof actor[methodName] === 'function') {
-        console.log(`[Actor.__init] Subscribing to action: ${methodName}`);
         this.bus.on(methodName, (args: unknown[]) => {
           // Invoke the action method with the args array
           (actor[methodName] as (...args: unknown[]) => unknown)(...(args || []));
@@ -59,12 +56,9 @@ export abstract class Actor<
     }
 
     // Subscribe to state hydration requests from ActorClients
-    console.log('[Actor.__init] Subscribing to __state-request');
     this.bus.on(PROTOCOL_EVENTS.STATE_REQUEST as any, () => {
-      console.log('[Actor] Received __state-request, responding with state:', this._state);
       this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
     });
-    console.log('[Actor.__init] Completed');
   }
 
   // Public state access (read-only)

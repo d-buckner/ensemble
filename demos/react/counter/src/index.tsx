@@ -30,9 +30,6 @@ async function main() {
   );
 
   (window as any).system = system;
-
-  console.log('🎭 Ensemble demo ready!');
-  console.log('Try: system.getClient(CounterToken).actions.increment()');
 }
 
 main().catch(console.error);

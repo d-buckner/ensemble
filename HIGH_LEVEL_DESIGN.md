@@ -4,7 +4,7 @@
 
 Ensemble is a frontend framework for building complex applications using the actor model. It enables developers to organize application logic into independent, composable actors that communicate via message passing. Actors can run on any thread (main or a worker) without coupling the actor topology to execution context, allowing for flexible performance optimization and clear separation of concerns.
 
-**Who is this for?** Ensemble is an architectural experiment for the small percentage of applications that face composition and scaling challenges at a sophisticated level. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or highly innovative frontends where maintaining development velocity as complexity grows becomes a primary concern.
+**Who is this for?** Ensemble is an architectural experiment for the small percentage of client-side applications that face composition and scaling challenges I outline below. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or innovative frontends where maintaining development velocity as complexity grows becomes a primary concern.
 
 ## The Challenge
 

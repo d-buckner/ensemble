@@ -4,6 +4,7 @@ export interface CounterState extends Record<string, unknown> {
   count: number;
 }
 
+@thread('counter')
 export class CounterActor extends Actor<CounterState> {
   constructor() {
     super({ count: 0 });
@@ -11,7 +12,6 @@ export class CounterActor extends Actor<CounterState> {
 
   @action
   increment(): void {
-    console.log('[CounterActor] increment called in worker');
     this.setState(draft => {
       draft.count += 1;
     });

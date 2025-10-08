@@ -1,30 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Actor } from './Actor';
-import type { IActorBus } from '../messaging/ActorBus';
 import type { AllEvents } from '../messaging/types';
 import { action } from './decorators';
-
-// Mock bus implementation
-class MockBus<TEventMap extends Record<string, unknown>> implements IActorBus<TEventMap> {
-  private listeners = new Map<string | number, Set<(payload: unknown) => void>>();
-
-  on<K extends keyof TEventMap>(eventName: K, callback: (payload: TEventMap[K]) => void): void {
-    const key = eventName as string | number;
-    if (!this.listeners.has(key)) {
-      this.listeners.set(key, new Set());
-    }
-    this.listeners.get(key)!.add(callback as (payload: unknown) => void);
-  }
-
-  off<K extends keyof TEventMap>(eventName: K, callback: (payload: TEventMap[K]) => void): void {
-    const key = eventName as string | number;
-    this.listeners.get(key)?.delete(callback as (payload: unknown) => void);
-  }
-
-  emit(eventName: string | number, payload: unknown): void {
-    this.listeners.get(eventName)?.forEach(cb => cb(payload));
-  }
-}
+import { MockBus } from '../testing/mocks/MockBus';
 
 interface TestState extends Record<string, unknown> {
   count: number;
@@ -209,35 +187,30 @@ describe('Actor', () => {
   });
 
   describe('action handling', () => {
-    it('should execute actions via __action event', () => {
-      bus.emit('__action', { method: 'increment', args: [] });
+    it('should execute actions via action event', () => {
+      bus.emit('increment', []);
 
       expect(actor.state.count).toBe(1);
     });
 
     it('should execute actions with arguments', () => {
-      bus.emit('__action', { method: 'setName', args: ['new-name'] });
+      bus.emit('setName', ['new-name']);
 
       expect(actor.state.name).toBe('new-name');
     });
 
     it('should execute actions with multiple arguments', () => {
-      bus.emit('__action', { method: 'addItem', args: ['item-1', 42] });
+      bus.emit('addItem', ['item-1', 42]);
 
       expect(actor.state.items).toHaveLength(1);
       expect(actor.state.items[0]).toEqual({ id: 'item-1', value: 42 });
     });
 
-    it('should handle unknown action method gracefully', () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      bus.emit('__action', { method: 'nonexistent', args: [] });
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Actor test-actor: Action method "nonexistent" not found'
-      );
-
-      consoleErrorSpy.mockRestore();
+    it('should not throw error when unknown action is emitted', () => {
+      // Unknown actions are simply not handled - no error should be thrown
+      expect(() => {
+        bus.emit('nonexistent', []);
+      }).not.toThrow();
     });
   });
 

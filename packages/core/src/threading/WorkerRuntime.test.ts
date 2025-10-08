@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Actor } from '../core/Actor';
+import { action } from '../core/decorators';
 import WorkerRuntime from './WorkerRuntime';
 import WorkerBus from '../messaging/WorkerBus';
 
@@ -13,12 +14,14 @@ class TestActor extends Actor<{ count: number }, { getValue: { value: number } }
     super({ count: 0 });
   }
 
+  @action
   increment() {
     this.setState(draft => {
       draft.count++;
     });
   }
 
+  @action
   getValue() {
     this.emit('getValue', { value: this.state.count });
   }

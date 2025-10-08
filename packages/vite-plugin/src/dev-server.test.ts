@@ -3,7 +3,7 @@ import { createWorkerMiddleware } from './dev-server';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { ActorInfo } from './scan-actors';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { join, relative } from 'path';
 import * as bundleWorkerModule from './bundle-worker';
 
 // Mock the bundleVirtualWorker function to avoid complex Rollup bundling in tests
@@ -11,7 +11,10 @@ vi.mock('./bundle-worker', () => ({
   bundleVirtualWorker: vi.fn(async (virtualModuleId: string, loadModule: (id: string) => string | undefined) => {
     // Generate a simple bundled code that includes the loaded module content
     const code = loadModule(virtualModuleId);
-    return `(function() { ${code} })();`;
+    return {
+      code: `(function() { ${code} })();`,
+      watchFiles: [],
+    };
   }),
 }));
 
@@ -53,7 +56,7 @@ export class TestActor extends Actor {
         [
           {
             className: 'TestActor',
-            filePath: join(srcDir, 'TestActor.ts'),
+            filePath: relative(projectRoot, join(srcDir, 'TestActor.ts')),
             threadId: 'worker-1',
           },
         ],
@@ -128,7 +131,7 @@ export class TestActor extends Actor {
         [
           {
             className: 'ComputeActor',
-            filePath: join(srcDir, 'ComputeActor.ts'),
+            filePath: relative(projectRoot, join(srcDir, 'ComputeActor.ts')),
             threadId: 'compute',
           },
         ],
@@ -196,7 +199,7 @@ export class Worker2Actor extends Actor {
         [
           {
             className: 'Worker1Actor',
-            filePath: join(srcDir, 'Worker1Actor.ts'),
+            filePath: relative(projectRoot, join(srcDir, 'Worker1Actor.ts')),
             threadId: 'worker-1',
           },
         ],
@@ -206,7 +209,7 @@ export class Worker2Actor extends Actor {
         [
           {
             className: 'Worker2Actor',
-            filePath: join(srcDir, 'Worker2Actor.ts'),
+            filePath: relative(projectRoot, join(srcDir, 'Worker2Actor.ts')),
             threadId: 'worker-2',
           },
         ],

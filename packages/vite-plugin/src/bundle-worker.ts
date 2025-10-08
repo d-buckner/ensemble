@@ -3,7 +3,6 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import replace from '@rollup/plugin-replace';
 import esbuild from 'rollup-plugin-esbuild';
-import { resolve } from 'path';
 
 export interface BundleResult {
   code: string;
@@ -24,15 +23,11 @@ export async function bundleVirtualWorker(
     plugins: [
       {
         name: 'virtual-module-loader',
-        resolveId(id, importer) {
+        resolveId(id) {
           if (id === virtualModuleId) {
             return id;
           }
-          // Only resolve relative imports if they're from the virtual module
-          if (importer === virtualModuleId && (id.startsWith('./') || id.startsWith('../'))) {
-            return resolve(projectRoot, id);
-          }
-          // Let other plugins handle everything else
+          // Let nodeResolve handle all other imports (including relative paths with extension resolution)
           return null;
         },
         load(id) {

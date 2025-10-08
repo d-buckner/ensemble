@@ -12,7 +12,10 @@ export function generateWorkerEntry(threadId: string, actors: ActorInfo[]): stri
     .map((actor) => {
       let modulePath = actor.filePath.replace(/\\/g, '/');
 
-      // Prepend ./ for relative paths, keep extension for Rollup
+      // Strip file extensions (.ts, .tsx, .js, .jsx)
+      modulePath = modulePath.replace(/\.(ts|tsx|js|jsx)$/, '');
+
+      // Prepend ./ for relative paths (Vite requirement)
       if (!modulePath.startsWith('/')) {
         modulePath = './' + modulePath;
       }

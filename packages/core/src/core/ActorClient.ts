@@ -141,15 +141,12 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
    * Request initial state hydration from the actor
    */
   private requestStateHydration(): void {
-    console.log('[ActorClient] Subscribing to __state responses');
     // Subscribe to __state responses
     this.bus.on(PROTOCOL_EVENTS.STATE as any, (state: StateOf<TActor>) => {
-      console.log('[ActorClient] Received __state response:', state);
       this.hydrateState(state);
     });
 
     // Request state from actor
-    console.log('[ActorClient] Emitting __state-request');
     this.bus.emit(PROTOCOL_EVENTS.STATE_REQUEST as any, undefined);
   }
 
@@ -158,7 +155,6 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
    * Called when receiving state response from actor
    */
   hydrateState(state: StateOf<TActor>): void {
-    console.log('[ActorClient] hydrateState called with:', state);
     this._state = state;
     this.stateShape = state;
 
@@ -169,7 +165,6 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
     // Emit __hydrated event to notify consumers (like React hooks) that state is ready
     // Consumers can then subscribe to individual state properties
     this.bus.emit(PROTOCOL_EVENTS.HYDRATED as any, state);
-    console.log('[ActorClient] Emitted __hydrated event');
   }
 
   /**

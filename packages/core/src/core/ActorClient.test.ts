@@ -2,30 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ActorClient } from './ActorClient';
 import { Actor } from './Actor';
 import { action } from './decorators';
-import type { IActorBus } from '../messaging/ActorBus';
 import type { AllEvents } from '../messaging/types';
-
-// Mock bus implementation
-class MockBus<TEventMap extends Record<string, unknown>> implements IActorBus<TEventMap> {
-  private listeners = new Map<string | number, Set<(payload: unknown) => void>>();
-
-  on<K extends keyof TEventMap>(eventName: K, callback: (payload: TEventMap[K]) => void): void {
-    const key = eventName as string | number;
-    if (!this.listeners.has(key)) {
-      this.listeners.set(key, new Set());
-    }
-    this.listeners.get(key)!.add(callback as (payload: unknown) => void);
-  }
-
-  off<K extends keyof TEventMap>(eventName: K, callback: (payload: TEventMap[K]) => void): void {
-    const key = eventName as string | number;
-    this.listeners.get(key)?.delete(callback as (payload: unknown) => void);
-  }
-
-  emit(eventName: string | number, payload: unknown): void {
-    this.listeners.get(eventName)?.forEach(cb => cb(payload));
-  }
-}
+import { MockBus } from '../testing/mocks/MockBus';
 
 interface TestState extends Record<string, unknown> {
   count: number;
@@ -67,6 +45,8 @@ describe('ActorClient', () => {
   beforeEach(() => {
     bus = new MockBus();
     client = new ActorClient(bus, { count: 5, name: 'initial' }, TestActor);
+    // Simulate actor responding with its state
+    bus.emit('__state', { count: 5, name: 'initial' });
   });
 
   describe('state', () => {
@@ -137,6 +117,51 @@ describe('ActorClient', () => {
     });
   });
 
+  describe('dispose()', () => {
+    it('should cleanup all listeners on dispose', () => {
+      const countCallback = vi.fn();
+      const nameCallback = vi.fn();
+      const customCallback = vi.fn();
+
+      client.on('count', countCallback);
+      client.on('name', nameCallback);
+      client.on('incremented', customCallback);
+
+      client.dispose();
+
+      // Emit events after disposal - none should trigger
+      bus.emit('count', 42);
+      bus.emit('name', 'updated');
+      bus.emit('incremented', { oldValue: 0, newValue: 1 });
+
+      expect(countCallback).not.toHaveBeenCalled();
+      expect(nameCallback).not.toHaveBeenCalled();
+      expect(customCallback).not.toHaveBeenCalled();
+    });
+
+    it('should cleanup state property subscriptions on dispose', () => {
+      const countCallback = vi.fn();
+
+      // State properties are auto-subscribed during hydration
+      client.on('count', countCallback);
+
+      client.dispose();
+
+      // State update should not trigger after disposal
+      bus.emit('count', 999);
+
+      expect(countCallback).not.toHaveBeenCalled();
+    });
+
+    it('should allow multiple dispose calls without errors', () => {
+      expect(() => {
+        client.dispose();
+        client.dispose();
+        client.dispose();
+      }).not.toThrow();
+    });
+  });
+
   describe('actions', () => {
     it('should create action proxies for @action decorated methods', () => {
       expect(client.actions.increment).toBeDefined();
@@ -149,28 +174,22 @@ describe('ActorClient', () => {
       expect((client.actions as Record<string, unknown>).regularMethod).toBeUndefined();
     });
 
-    it('should emit __action event when action is called', () => {
+    it('should emit action event when action is called', () => {
       const actionCallback = vi.fn();
-      bus.on('__action', actionCallback);
+      bus.on('increment', actionCallback);
 
       client.actions.increment?.();
 
-      expect(actionCallback).toHaveBeenCalledWith({
-        method: 'increment',
-        args: [],
-      });
+      expect(actionCallback).toHaveBeenCalledWith([]);
     });
 
     it('should pass arguments to action proxy', () => {
       const actionCallback = vi.fn();
-      bus.on('__action', actionCallback);
+      bus.on('setName', actionCallback);
 
       client.actions.setName?.('new-name');
 
-      expect(actionCallback).toHaveBeenCalledWith({
-        method: 'setName',
-        args: ['new-name'],
-      });
+      expect(actionCallback).toHaveBeenCalledWith(['new-name']);
     });
 
     it('should handle multiple arguments', () => {
@@ -184,15 +203,15 @@ describe('ActorClient', () => {
       }
 
       const multiClient = new ActorClient(bus, {}, MultiArgActor);
+      // Simulate state hydration
+      bus.emit('__state', {});
+
       const actionCallback = vi.fn();
-      bus.on('__action', actionCallback);
+      bus.on('multiArg', actionCallback);
 
       multiClient.actions.multiArg?.(1, 'test', true);
 
-      expect(actionCallback).toHaveBeenCalledWith({
-        method: 'multiArg',
-        args: [1, 'test', true],
-      });
+      expect(actionCallback).toHaveBeenCalledWith([1, 'test', true]);
     });
   });
 
