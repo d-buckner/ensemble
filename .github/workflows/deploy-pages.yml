@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  DO_NOT_TRACK: 1
+
 permissions:
   contents: read
   pages: write
