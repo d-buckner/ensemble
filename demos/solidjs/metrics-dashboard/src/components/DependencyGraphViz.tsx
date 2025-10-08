@@ -82,7 +82,6 @@ export function DependencyGraphViz() {
     if (!svgRef) return;
 
     const width = 800;
-    const height = 500;
     const nodeRadius = 60;
 
     const svg = d3.select(svgRef);
@@ -158,7 +157,7 @@ export function DependencyGraphViz() {
           .attr('stroke', '#667eea')
           .attr('stroke-width', 3);
       })
-      .on('mouseleave', function(event, d) {
+      .on('mouseleave', function(_event, d) {
         if (d.id !== 'ui') {
           d3.select(this)
             .transition()
@@ -199,7 +198,7 @@ export function DependencyGraphViz() {
       .attr('opacity', 0)
       .transition()
       .duration(500)
-      .delay((d, i) => i * 100)
+      .delay((_d, i) => i * 100)
       .attr('opacity', 1);
 
     linkElements
