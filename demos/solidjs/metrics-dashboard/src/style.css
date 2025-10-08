@@ -1,0 +1,306 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: #0a0a0a;
+  color: #e0e0e0;
+  padding: 2rem;
+  line-height: 1.6;
+}
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.app-title {
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: #333;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #444;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-info {
+  margin-left: auto;
+  display: flex;
+  gap: 1.5rem;
+  color: #888;
+}
+
+/* Performance Section */
+.performance-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.performance-section h3 {
+  margin-bottom: 1rem;
+  color: #888;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.metric-card {
+  background: #0a0a0a;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #222;
+  text-align: center;
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  color: #888;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+/* Dependency Graph */
+.dependency-graph {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.dependency-graph h4 {
+  color: #888;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.graph-viz-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  background: #0a0a0a;
+  border-radius: 6px;
+  border: 1px solid #222;
+  padding: 1rem;
+}
+
+.graph-viz-container svg {
+  width: 100%;
+  height: auto;
+}
+
+/* Current Metrics */
+.current-metrics {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.current-metrics h3 {
+  margin-bottom: 1rem;
+  color: #888;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-card {
+  background: #0a0a0a;
+  padding: 1.5rem;
+  border-radius: 6px;
+  border: 1px solid #222;
+  text-align: center;
+}
+
+.stat-card h4 {
+  color: #888;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #667eea;
+}
+
+.stat-detail {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+/* Anomalies */
+.anomalies-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.anomalies-section h3 {
+  margin-bottom: 1rem;
+  color: #888;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.anomaly-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.anomaly-card {
+  background: #0a0a0a;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #222;
+}
+
+.anomaly-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.anomaly-type {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  letter-spacing: 0.05em;
+}
+
+.anomaly-time {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.anomaly-message {
+  margin-bottom: 0.5rem;
+  color: #e0e0e0;
+}
+
+.anomaly-severity {
+  font-size: 0.75rem;
+  color: #666;
+  text-transform: capitalize;
+}
+
+/* Charts */
+.charts-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.chart-card {
+  background: #1a1a1a;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.chart-card h3 {
+  margin-bottom: 1rem;
+  color: #888;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.chart-container {
+  position: relative;
+  height: 150px;
+  background: #0a0a0a;
+  border-radius: 6px;
+  border: 1px solid #222;
+  overflow: hidden;
+}
+
+.uplot-chart {
+  width: 100%;
+  height: 100%;
+}
+
+/* Override uPlot default styles */
+.uplot {
+  background: transparent !important;
+}
+
+.u-over {
+  background: transparent !important;
+}

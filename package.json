@@ -14,8 +14,8 @@
     "typecheck": "turbo run typecheck",
     "dev": "turbo run dev",
     "demo:react:counter": "turbo run dev --filter=demo-react-counter",
-    "demo:react:traffic-monitor": "turbo run dev --filter=demo-react-traffic-monitor",
-    "demo:solidjs:counter": "turbo run dev --filter=demo-solidjs-counter"
+    "demo:solidjs:counter": "turbo run dev --filter=demo-solidjs-counter",
+    "demo:solidjs:metrics-dashboard": "turbo run dev --filter=demo-solidjs-metrics-dashboard"
   },
   "devDependencies": {
     "turbo": "^2.3.3"

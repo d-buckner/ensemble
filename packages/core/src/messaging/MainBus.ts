@@ -73,7 +73,30 @@ export class MainBus extends ThreadBus {
         return;
       }
 
+      console.log(`[MainBus] Received event from worker: actorId=${actorId}, eventName=${eventName}`);
+
+      // Notify local listeners on main thread
       this.receive(actorId, eventName, payload);
+
+      // Forward to dependent actors on other workers
+      const actor = this.actorSystem.get(actorId);
+      if (actor && actor.dependents) {
+        console.log(`[MainBus] Actor ${actorId} has ${actor.dependents.length} dependents:`, actor.dependents.map(d => `${d.id}@${this.actorSystem.get(d.id)?.threadId}`));
+        for (const dependentToken of actor.dependents) {
+          const dependent = this.actorSystem.get(dependentToken.id);
+          if (dependent && dependent.threadId !== MAIN_THREAD_ID) {
+            console.log(`[MainBus] Forwarding event ${eventName} from ${actorId} to dependent ${dependentToken.id} on ${dependent.threadId}`);
+            const worker = this.workerRegistry.get(dependent.threadId);
+            if (worker) {
+              worker.postMessage(pack({ actorId, eventName, payload }));
+            } else {
+              console.error(`[MainBus] No worker found for threadId ${dependent.threadId}`);
+            }
+          }
+        }
+      } else {
+        console.log(`[MainBus] Actor ${actorId} has no dependents or not found in ActorSystem`);
+      }
     } catch (error) {
       console.error('MainBus: Failed to handle worker message', error);
     }

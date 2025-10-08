@@ -1,6 +1,7 @@
 import { createSignal, onCleanup, createContext, useContext } from 'solid-js';
 import type { JSX } from 'solid-js';
 import type { Actor, ActorSystem, ActorToken, StateOf, ActionsOf } from '@d-buckner/ensemble-core';
+import { PROTOCOL_EVENTS } from '@d-buckner/ensemble-core';
 
 // Convert each property to a signal accessor
 type ReactiveState<S extends Record<string, unknown>> = {
@@ -75,20 +76,49 @@ export function createActor<TActor extends Actor>(
 
   const initialState = client.state;
   const stateAccessors: Record<string, any> = {};
+  const stateSetters: Record<string, (value: any) => void> = {};
+  const cleanupFns: Array<() => void> = [];
 
   // Create a signal for each top-level property
   for (const key in initialState) {
     const [getter, setter] = createSignal(initialState[key]);
     stateAccessors[key] = getter;
+    stateSetters[key] = (value: any) => setter(() => value);
+  }
 
-    // Subscribe to property changes
-    const callback = (value: any) => {
-      setter(() => value);
-    };
-    client.on(key as any, callback);
+  // Subscribe to state properties after hydration
+  const subscribeToProperties = (hydratedState: StateOf<TActor>) => {
+    // Update all signals with hydrated state values
+    for (const key in hydratedState) {
+      if (stateSetters[key]) {
+        stateSetters[key](hydratedState[key]);
+      }
+    }
+
+    // Subscribe to property change events
+    for (const key in hydratedState) {
+      const callback = (value: any) => {
+        if (stateSetters[key]) {
+          stateSetters[key](value);
+        }
+      };
+      client.on(key as any, callback);
+      cleanupFns.push(() => client.off(key as any, callback));
+    }
+  };
+
+  // Listen for hydration event
+  client.on(PROTOCOL_EVENTS.HYDRATED as any, subscribeToProperties);
+  cleanupFns.push(() => client.off(PROTOCOL_EVENTS.HYDRATED as any, subscribeToProperties));
+
+  // If already hydrated (main thread actors), subscribe immediately
+  // Use queueMicrotask to defer until after client is fully initialized
+  if (Object.keys(client.state).length > 0) {
+    queueMicrotask(() => subscribeToProperties(client.state));
   }
 
   onCleanup(() => {
+    cleanupFns.forEach(fn => fn());
     client.dispose();
   });
 
