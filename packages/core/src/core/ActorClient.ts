@@ -46,6 +46,7 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
   private listeners: Map<string, Set<TypedListener<any>>> = new Map();
   public readonly actions: ActionsOf<TActor>;
   private stateHydrationCallback?: TypedListener<StateOf<TActor>>;
+  private isSubscribedToStateUpdates = false;
 
   constructor(
     bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>,
@@ -130,12 +131,18 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
       this.bus.on(key as keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>, callback);
       this.trackListener(key, callback);
     }
+
+    this.isSubscribedToStateUpdates = true;
   }
 
   /**
    * Request initial state hydration from the actor
    */
   private requestStateHydration(): void {
+    // Subscribe to state property updates BEFORE requesting state
+    // This prevents race condition where state changes arrive before subscription
+    this.subscribeToStateUpdates();
+
     // Subscribe to __state responses
     this.stateHydrationCallback = (state: StateOf<TActor>) => {
       this.hydrateState(state);
@@ -153,9 +160,10 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
   hydrateState(state: StateOf<TActor>): void {
     this._state = state;
 
-    // Subscribe to state updates now that we have the actual state shape
-    // This is called exactly once after receiving the state response
-    this.subscribeToStateUpdates();
+    // Subscribe to state updates (idempotent - only subscribes once)
+    if (!this.isSubscribedToStateUpdates) {
+      this.subscribeToStateUpdates();
+    }
 
     // Emit __hydrated event to notify consumers (like React hooks) that state is ready
     // Consumers can then subscribe to individual state properties

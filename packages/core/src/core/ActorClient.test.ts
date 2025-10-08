@@ -232,5 +232,49 @@ describe('ActorClient', () => {
       expect(client.state.count).toBe(100);
       expect(client.state.name).toBe('synchronized');
     });
+
+    it('should not miss state updates that arrive before hydration response', () => {
+      // Create a new client (doesn't trigger __state response yet)
+      const newBus = new MockBus<AllEvents<TestState, TestEvents>>();
+      const newClient = new ActorClient<TestActor>(newBus, { count: 0, name: 'initial' });
+
+      // Simulate state changes arriving BEFORE the __state response
+      // This tests the race condition fix
+      newBus.emit('count', 42);
+      newBus.emit('name', 'updated');
+
+      // Now the __state response arrives
+      newBus.emit('__state', { count: 10, name: 'hydrated' });
+
+      // State should be the hydrated state (from __state response)
+      expect(newClient.state.count).toBe(10);
+      expect(newClient.state.name).toBe('hydrated');
+
+      // But subsequent updates should still work
+      newBus.emit('count', 99);
+      expect(newClient.state.count).toBe(99);
+    });
+
+    it('should handle rapid state changes during and after hydration', () => {
+      const newBus = new MockBus<AllEvents<TestState, TestEvents>>();
+      const newClient = new ActorClient<TestActor>(newBus, { count: 0, name: 'initial' });
+
+      // Rapid changes before hydration
+      newBus.emit('count', 1);
+      newBus.emit('count', 2);
+      newBus.emit('count', 3);
+
+      // Hydration arrives
+      newBus.emit('__state', { count: 100, name: 'hydrated' });
+
+      // More rapid changes after hydration
+      newBus.emit('count', 101);
+      newBus.emit('count', 102);
+      newBus.emit('name', 'final');
+
+      // Should have the latest values
+      expect(newClient.state.count).toBe(102);
+      expect(newClient.state.name).toBe('final');
+    });
   });
 });
