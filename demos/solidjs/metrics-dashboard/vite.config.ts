@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import { ensemblePlugin } from '@d-buckner/ensemble-vite-plugin';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? './' : '/',
   plugins: [
     solid({
       babel: {
@@ -21,4 +22,4 @@ export default defineConfig({
   esbuild: {
     target: 'es2022',
   },
-});
+}));

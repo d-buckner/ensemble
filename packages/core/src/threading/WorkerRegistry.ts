@@ -35,8 +35,8 @@ export class WorkerRegistry {
       throw new Error(`Cannot register worker as worker with threadId that already exists: ${threadId}`);
     }
 
-    // Construct thread-specific worker bundle path
-    const workerPath = `/${this.workerOutput}/${threadId}.js`;
+    // Construct thread-specific worker bundle path (relative to current page)
+    const workerPath = `./${this.workerOutput}/${threadId}.js`;
     const worker = new Worker(workerPath);
 
     // Attach message handler if already set
