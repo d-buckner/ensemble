@@ -26,6 +26,7 @@ export interface ActorRegistration<T extends Actor = any> {
 // Internal node representation in the graph
 interface Node<T extends Actor = any> extends ActorRegistration<T> {
   threadId: string; // Extracted from @thread decorator or defaults to MAIN_THREAD_ID
+  className: string; // Stored before minification for worker instantiation
   dependents: ActorToken<T>[];
 }
 
@@ -78,6 +79,7 @@ export default class ActorSystem {
       token,
       actor,
       threadId,
+      className: actor.name, // Capture before minification
       dependencies,
       dependents: [],
     };
@@ -245,7 +247,7 @@ export default class ActorSystem {
         }
         dependencyMetadata[depName] = {
           actorId: depToken.id,
-          className: depNode.actor.name
+          className: depNode.className
         };
       }
 
@@ -253,7 +255,7 @@ export default class ActorSystem {
       const command: InstantiateCommand = {
         type: 'instantiate',
         actorId,
-        className: ActorClass.name,
+        className: node.className,
         metadata: {
           id: metadata.id,
           name: metadata.name,
