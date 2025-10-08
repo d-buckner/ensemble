@@ -21,5 +21,6 @@ export default defineConfig(({ command }) => ({
   },
   esbuild: {
     target: 'es2022',
+    keepNames: true,
   },
 }));
