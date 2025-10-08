@@ -3,6 +3,7 @@ import type { AllEvents } from '../../messaging/types';
 import type { ActorClient } from '../../core/ActorClient';
 import { MockBus } from '../mocks/MockBus';
 import type { ActorMetadata } from '../../core/Actor';
+import { PROTOCOL_EVENTS } from '../../messaging/protocol-events';
 
 /**
  * Helper utilities for setting up actors and clients in tests
@@ -61,7 +62,7 @@ export function createHydratedClient<TActor extends Actor<any, any>>(
   );
 
   // Simulate state hydration
-  clientBus.emit('__state', initialState);
+  clientBus.emit(PROTOCOL_EVENTS.STATE, initialState);
 
   return { client, bus: clientBus };
 }

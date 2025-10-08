@@ -3,6 +3,7 @@ import type WorkerBus from '../messaging/WorkerBus';
 import { ActorBus } from '../messaging/ActorBus';
 import { ActorClient } from '../core/ActorClient';
 import type { AllEvents } from '../messaging/types';
+import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 
 export interface InstantiateCommand {
   type: 'instantiate';
@@ -96,7 +97,7 @@ export default class WorkerRuntime {
 
     // Send initial state to main thread for ActorClient hydration
     // Use static initialState to avoid accessing actor's private state
-    actorBus.emit('__state', ActorClass.initialState);
+    actorBus.emit(PROTOCOL_EVENTS.STATE as any, ActorClass.initialState);
 
     // Call lifecycle hook (access protected method via type assertion)
     await actorInstance.onInit?.call(actorInstance);
