@@ -60,7 +60,7 @@ export function App() {
 
   return (
     <div class="app">
-      <h1 class="app-title">Real-Time Metrics Dashboard</h1>
+      <h1 class="app-title">Ensemble Demo: Real-Time Metrics</h1>
 
       {/* Controls */}
       <div class="controls">
