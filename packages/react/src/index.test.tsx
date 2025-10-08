@@ -4,6 +4,11 @@ import { createElement } from 'react';
 import { EnsembleProvider, useActorSystem, useActor } from './index';
 import { ActorSystem, Actor, createActorToken, action } from '@d-buckner/ensemble-core';
 
+// Mock the virtual manifest module
+vi.mock('virtual:ensemble-worker-manifest', () => ({
+  WORKER_PATHS: {}
+}));
+
 // Test Actor
 interface CounterState extends Record<string, unknown> {
   count: number;

@@ -2,6 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WorkerRegistry } from './WorkerRegistry';
 import { MAIN_THREAD_ID } from '../constants';
 
+// Mock the virtual manifest module
+vi.mock('virtual:ensemble-worker-manifest', () => ({
+  WORKER_PATHS: {
+    'worker-1': './workers/worker-1-abc123.js',
+    'worker-2': './workers/worker-2-def456.js',
+    'worker-3': './workers/worker-3-ghi789.js',
+    'compute': './workers/compute-jkl012.js',
+    'io-thread': './workers/io-thread-mno345.js',
+    'database': './custom-workers/database-pqr678.js',
+  }
+}));
+
 // Mock Worker class
 class MockWorker {
   private listeners = new Map<string, Set<(event: MessageEvent) => void>>();
@@ -38,8 +50,18 @@ describe('WorkerRegistry', () => {
   let registry: WorkerRegistry;
   let originalWorker: typeof Worker;
 
+  const mockWorkerPaths = {
+    'worker-1': './workers/worker-1-abc123.js',
+    'worker-2': './workers/worker-2-def456.js',
+    'worker-3': './workers/worker-3-ghi789.js',
+    'compute': './workers/compute-jkl012.js',
+    'io-thread': './workers/io-thread-mno345.js',
+    'database': './custom-workers/database-pqr678.js',
+  };
+
   beforeEach(() => {
     registry = new WorkerRegistry();
+    registry.setWorkerPaths(mockWorkerPaths);
 
     // Mock global Worker
     originalWorker = globalThis.Worker;
@@ -52,21 +74,12 @@ describe('WorkerRegistry', () => {
   });
 
   describe('add()', () => {
-    it('should create and register a new worker', () => {
+    it('should create and register a new worker with manifest path', () => {
       registry.add('worker-1');
 
       const worker = registry.get('worker-1');
       expect(worker).toBeDefined();
-      expect((worker as unknown as MockWorker).url).toBe('./workers/worker-1.js');
-    });
-
-    it('should use custom workerOutput directory when provided', () => {
-      const customRegistry = new WorkerRegistry('custom-workers');
-      customRegistry.add('worker-1');
-
-      const worker = customRegistry.get('worker-1');
-      expect(worker).toBeDefined();
-      expect((worker as unknown as MockWorker).url).toBe('./custom-workers/worker-1.js');
+      expect((worker as unknown as MockWorker).url).toBe('./workers/worker-1-abc123.js');
     });
 
     it('should throw when trying to register main thread', () => {
@@ -81,6 +94,12 @@ describe('WorkerRegistry', () => {
       expect(() => {
         registry.add('worker-1');
       }).toThrow('Cannot register worker as worker with threadId that already exists: worker-1');
+    });
+
+    it('should throw when worker path not found in manifest', () => {
+      expect(() => {
+        registry.add('nonexistent-worker');
+      }).toThrow('Worker path not found in manifest for threadId: nonexistent-worker');
     });
 
     it('should attach message handler to new worker if handler already set', () => {
@@ -106,7 +125,7 @@ describe('WorkerRegistry', () => {
       expect(registry.has('worker-3')).toBe(true);
     });
 
-    it('should load thread-specific worker bundles by threadId', () => {
+    it('should load thread-specific worker bundles from manifest', () => {
       registry.add('worker-1');
       registry.add('compute');
       registry.add('io-thread');
@@ -115,21 +134,20 @@ describe('WorkerRegistry', () => {
       const workerCompute = registry.get('compute') as unknown as MockWorker;
       const workerIo = registry.get('io-thread') as unknown as MockWorker;
 
-      expect(worker1.url).toBe('./workers/worker-1.js');
-      expect(workerCompute.url).toBe('./workers/compute.js');
-      expect(workerIo.url).toBe('./workers/io-thread.js');
+      expect(worker1.url).toBe('./workers/worker-1-abc123.js');
+      expect(workerCompute.url).toBe('./workers/compute-jkl012.js');
+      expect(workerIo.url).toBe('./workers/io-thread-mno345.js');
     });
 
-    it('should use custom workerOutput path for thread-specific bundles', () => {
-      const customRegistry = new WorkerRegistry('custom-workers');
-      customRegistry.add('worker-1');
-      customRegistry.add('database');
+    it('should use paths from manifest regardless of directory', () => {
+      registry.add('worker-1');
+      registry.add('database');
 
-      const worker1 = customRegistry.get('worker-1') as unknown as MockWorker;
-      const workerDb = customRegistry.get('database') as unknown as MockWorker;
+      const worker1 = registry.get('worker-1') as unknown as MockWorker;
+      const workerDb = registry.get('database') as unknown as MockWorker;
 
-      expect(worker1.url).toBe('./custom-workers/worker-1.js');
-      expect(workerDb.url).toBe('./custom-workers/database.js');
+      expect(worker1.url).toBe('./workers/worker-1-abc123.js');
+      expect(workerDb.url).toBe('./custom-workers/database-pqr678.js');
     });
   });
 

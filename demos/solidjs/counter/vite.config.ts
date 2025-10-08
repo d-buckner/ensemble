@@ -1,14 +1,18 @@
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
+import { ensemblePlugin } from '@d-buckner/ensemble-vite-plugin';
 
 export default defineConfig({
-  plugins: [solid({
-    babel: {
-      parserOpts: {
-        plugins: ['decorators-legacy']
+  plugins: [
+    solid({
+      babel: {
+        parserOpts: {
+          plugins: ['decorators-legacy']
+        }
       }
-    }
-  })],
+    }),
+    ensemblePlugin()
+  ],
   server: {
     port: 3000,
   },

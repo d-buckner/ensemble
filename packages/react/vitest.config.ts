@@ -5,4 +5,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
   },
+  resolve: {
+    alias: {
+      'virtual:ensemble-worker-manifest': new URL('./src/__mocks__/worker-manifest.ts', import.meta.url).pathname,
+    },
+  },
 });

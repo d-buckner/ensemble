@@ -50,9 +50,10 @@ export default class ActorSystem {
   private mainBus?: MainBus;
   private instances: Map<symbol, Actor> = new Map();
   private clients: Map<symbol, ActorClient<any>> = new Map();
+  private threadsToRegister: Set<string> = new Set();
 
-  constructor(options: ActorSystemOptions = {}) {
-    this.workerRegistry = new WorkerRegistry(options.workerOutput);
+  constructor(_options: ActorSystemOptions = {}) {
+    this.workerRegistry = new WorkerRegistry();
   }
 
   register(registration: ActorRegistration): void {
@@ -84,9 +85,9 @@ export default class ActorSystem {
       dependents: [],
     };
 
-    // Only add to worker registry if not the main thread
-    if (threadId !== MAIN_THREAD_ID && !this.workerRegistry.has(threadId)) {
-      this.workerRegistry.add(threadId);
+    // Track threads that need workers (will be registered during start())
+    if (threadId !== MAIN_THREAD_ID) {
+      this.threadsToRegister.add(threadId);
     }
   }
 
@@ -160,6 +161,20 @@ export default class ActorSystem {
   async start(): Promise<void> {
     // Validate no cycles in dependency graph
     this.validateAcyclic();
+
+    // Load worker manifest and register workers
+    if (this.threadsToRegister.size > 0) {
+      try {
+        const module = await import('virtual:ensemble-worker-manifest');
+        this.workerRegistry.setWorkerPaths(module.WORKER_PATHS);
+      } catch {
+        throw new Error('Worker manifest not found. Ensure @d-buckner/ensemble-vite-plugin is installed.');
+      }
+
+      for (const threadId of this.threadsToRegister) {
+        this.workerRegistry.add(threadId);
+      }
+    }
 
     // Create main bus
     this.mainBus = new MainBus(this, this.workerRegistry);

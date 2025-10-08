@@ -93,6 +93,18 @@ describe('ensemblePlugin', () => {
       expect(result).toBe('\0virtual:ensemble-worker-worker-1');
     });
 
+    it('should resolve virtual manifest module', async () => {
+      const plugin = ensemblePlugin() as Plugin;
+
+      const result = await (plugin.resolveId as Function).call(
+        {},
+        'virtual:ensemble-worker-manifest',
+        undefined
+      );
+
+      expect(result).toBe('\0virtual:ensemble-worker-manifest');
+    });
+
     it('should not resolve non-virtual modules', async () => {
       const plugin = ensemblePlugin() as Plugin;
 
@@ -137,6 +149,39 @@ export class TestActor extends Actor {
       expect(code).toContain("'TestActor': TestActor");
       expect(code).toContain("import { WorkerBus, WorkerRuntime } from '@d-buckner/ensemble-core'");
       expect(code).toContain('const actorRegistry');
+    });
+
+    it('should load virtual manifest module with worker paths', async () => {
+      writeFileSync(
+        join(srcDir, 'TestActor.ts'),
+        `import { Actor, thread } from '@d-buckner/ensemble-core';
+
+@thread('worker-1')
+export class TestActor extends Actor {
+  state = {};
+}
+`
+      );
+
+      const plugin = ensemblePlugin({ workerOutput: 'assets' }) as Plugin;
+      const mockConfig = {
+        root: testDir,
+        command: 'serve',
+        mode: 'development',
+      } as ResolvedConfig;
+
+      if (plugin.configResolved) {
+        await plugin.configResolved.call({}, mockConfig, {} as any);
+      }
+
+      const code = await (plugin.load as Function).call(
+        {},
+        '\0virtual:ensemble-worker-manifest'
+      );
+
+      expect(code).toContain('export const WORKER_PATHS');
+      expect(code).toContain('"worker-1"');
+      expect(code).toContain('./assets/worker-1.js');
     });
 
     it('should return undefined for non-virtual modules in load', async () => {
@@ -250,7 +295,7 @@ export class TestActor extends Actor {
       expect(code).toContain('TestActor');
     });
 
-    it('should emit worker bundles for each thread during generateBundle', async () => {
+    it('should emit worker bundles with content hashes and manifest', async () => {
       writeFileSync(
         join(srcDir, 'Worker1Actor.ts'),
         `import { Actor, thread } from '@d-buckner/ensemble-core';
@@ -301,25 +346,36 @@ export class Worker2Actor extends Actor {
         await (plugin.generateBundle as Function).call(mockContext, {} as any, {} as any);
       }
 
-      // Should emit a worker bundle for each thread
-      expect(mockEmitFile).toHaveBeenCalledTimes(2);
+      // Should emit worker bundles + manifest = 3 files
+      expect(mockEmitFile).toHaveBeenCalledTimes(3);
 
-      expect(mockEmitFile).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'asset',
-          fileName: 'workers/worker-1.js',
-        })
-      );
+      // Worker bundles should have content hashes
+      const calls = mockEmitFile.mock.calls;
+      const worker1Call = calls.find(c => c[0].fileName?.includes('worker-1'));
+      const worker2Call = calls.find(c => c[0].fileName?.includes('worker-2'));
+      const manifestCall = calls.find(c => c[0].fileName?.includes('manifest'));
 
-      expect(mockEmitFile).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'asset',
-          fileName: 'workers/worker-2.js',
-        })
-      );
+      expect(worker1Call).toBeDefined();
+      expect(worker1Call![0].fileName).toMatch(/workers\/worker-1-[a-f0-9]{8}\.js/);
+      expect(worker1Call![0].type).toBe('asset');
+
+      expect(worker2Call).toBeDefined();
+      expect(worker2Call![0].fileName).toMatch(/workers\/worker-2-[a-f0-9]{8}\.js/);
+      expect(worker2Call![0].type).toBe('asset');
+
+      // Manifest should be emitted
+      expect(manifestCall).toBeDefined();
+      expect(manifestCall![0].fileName).toBe('workers/manifest.js');
+      expect(manifestCall![0].type).toBe('asset');
+
+      // Manifest should contain worker paths with hashes
+      const manifestSource = manifestCall![0].source as string;
+      expect(manifestSource).toContain('WORKER_PATHS');
+      expect(manifestSource).toMatch(/worker-1.*worker-1-[a-f0-9]{8}\.js/);
+      expect(manifestSource).toMatch(/worker-2.*worker-2-[a-f0-9]{8}\.js/);
     });
 
-    it('should use custom workerOutput directory', async () => {
+    it('should use custom workerOutput directory with content hash', async () => {
       writeFileSync(
         join(srcDir, 'TestActor.ts'),
         `import { Actor, thread } from '@d-buckner/ensemble-core';
@@ -356,11 +412,14 @@ export class TestActor extends Actor {
         await (plugin.generateBundle as Function).call(mockContext, {} as any, {} as any);
       }
 
-      expect(mockEmitFile).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fileName: 'custom-dir/compute.js',
-        })
-      );
+      // Should emit worker + manifest
+      expect(mockEmitFile).toHaveBeenCalledTimes(2);
+
+      const calls = mockEmitFile.mock.calls;
+      const workerCall = calls.find(c => c[0].fileName?.includes('compute'));
+
+      expect(workerCall).toBeDefined();
+      expect(workerCall![0].fileName).toMatch(/custom-dir\/compute-[a-f0-9]{8}\.js/);
     });
 
     it('should not emit worker bundles when no actors have @thread decorator', async () => {

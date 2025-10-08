@@ -5,10 +5,13 @@ type MessageHandler = (data: ArrayBuffer | Uint8Array) => void;
 export class WorkerRegistry {
   private registry: Record<string, Worker> = {};
   private messageHandler?: MessageHandler;
-  private workerOutput: string;
+  private workerPaths: Record<string, string> = {};
 
-  constructor(workerOutput: string = 'workers') {
-    this.workerOutput = workerOutput;
+  /**
+   * Set the worker paths from the manifest
+   */
+  setWorkerPaths(paths: Record<string, string>): void {
+    this.workerPaths = paths;
   }
 
   /**
@@ -35,8 +38,12 @@ export class WorkerRegistry {
       throw new Error(`Cannot register worker as worker with threadId that already exists: ${threadId}`);
     }
 
-    // Construct thread-specific worker bundle path (relative to current page)
-    const workerPath = `./${this.workerOutput}/${threadId}.js`;
+    // Get worker path from manifest (with content hash in production)
+    const workerPath = this.workerPaths[threadId];
+    if (!workerPath) {
+      throw new Error(`Worker path not found in manifest for threadId: ${threadId}`);
+    }
+
     const worker = new Worker(workerPath);
 
     // Attach message handler if already set

@@ -15,5 +15,8 @@ export default defineConfig({
   },
   resolve: {
     conditions: ['browser', 'development'],
+    alias: {
+      'virtual:ensemble-worker-manifest': new URL('./src/__mocks__/worker-manifest.ts', import.meta.url).pathname,
+    },
   },
 });

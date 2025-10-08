@@ -4,9 +4,12 @@ import { createWorkerMiddleware } from './dev-server';
 import { scanForThreadActors, scanAllActors, type ActorInfo } from './scan-actors';
 import { generateWorkerEntry } from './generate-worker-entry';
 import { bundleVirtualWorker } from './bundle-worker';
+import { createHash } from 'crypto';
 
 const VIRTUAL_MODULE_PREFIX = 'virtual:ensemble-worker-';
 const RESOLVED_VIRTUAL_PREFIX = '\0' + VIRTUAL_MODULE_PREFIX;
+const MANIFEST_MODULE_ID = 'virtual:ensemble-worker-manifest';
+const RESOLVED_MANIFEST_ID = '\0' + MANIFEST_MODULE_ID;
 
 export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
   const { workerOutput = 'workers' } = options;
@@ -30,12 +33,24 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
     },
 
     resolveId(id) {
+      if (id === MANIFEST_MODULE_ID) {
+        return RESOLVED_MANIFEST_ID;
+      }
       if (id.startsWith(VIRTUAL_MODULE_PREFIX)) {
         return RESOLVED_VIRTUAL_PREFIX + id.slice(VIRTUAL_MODULE_PREFIX.length);
       }
     },
 
     load(id) {
+      if (id === RESOLVED_MANIFEST_ID) {
+        // In dev mode, return simple paths (Vite handles cache busting)
+        const workerPaths: Record<string, string> = {};
+        for (const threadId of actorsByThread.keys()) {
+          workerPaths[threadId] = `./${workerOutput}/${threadId}.js`;
+        }
+        return `export const WORKER_PATHS = ${JSON.stringify(workerPaths, null, 2)};`;
+      }
+
       if (id.startsWith(RESOLVED_VIRTUAL_PREFIX)) {
         const threadId = id.slice(RESOLVED_VIRTUAL_PREFIX.length);
         const threadActors = actorsByThread.get(threadId);
@@ -74,14 +89,37 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
     },
 
     generateBundle() {
-      // Emit worker bundles as assets
+      // Only emit if there are workers
+      if (workerBundles.size === 0) {
+        return;
+      }
+
+      // Emit worker bundles as assets with content hash
+      const workerPaths: Record<string, string> = {};
+
       for (const [threadId, bundledCode] of workerBundles.entries()) {
+        // Compute content hash
+        const hash = createHash('sha256').update(bundledCode).digest('hex').substring(0, 8);
+        const fileName = `${workerOutput}/${threadId}-${hash}.js`;
+
         this.emitFile({
           type: 'asset',
-          fileName: `${workerOutput}/${threadId}.js`,
+          fileName,
           source: bundledCode,
         });
+
+        // Store path for manifest (relative from HTML page)
+        workerPaths[threadId] = `./${fileName}`;
       }
+
+      // Generate and emit worker manifest
+      const manifestCode = `export const WORKER_PATHS = ${JSON.stringify(workerPaths, null, 2)};`;
+
+      this.emitFile({
+        type: 'asset',
+        fileName: `${workerOutput}/manifest.js`,
+        source: manifestCode,
+      });
     },
 
     configureServer(server) {
