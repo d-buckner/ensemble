@@ -75,7 +75,7 @@ export class StatisticsActor extends Actor<StatisticsState> {
     processedBatch: null
   };
 
-  protected deps!: StatisticsDeps;
+  protected declare deps: StatisticsDeps;
 
   constructor() {
     super(StatisticsActor.initialState);

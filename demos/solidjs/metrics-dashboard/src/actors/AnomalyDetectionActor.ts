@@ -42,7 +42,7 @@ export class AnomalyDetectionActor extends Actor<AnomalyDetectionState> {
     latestAnomaly: null
   };
 
-  protected deps!: AnomalyDetectionDeps;
+  protected declare deps: AnomalyDetectionDeps;
 
   // Historical data for trend detection
   private cpuHistory: number[] = [];

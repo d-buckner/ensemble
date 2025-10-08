@@ -1,29 +1,36 @@
-# Ensemble - High Level Design
+# Ensemble
 
 ## Overview
 
 Ensemble is a frontend framework for building complex applications using the actor model. It enables developers to organize application logic into independent, composable actors that communicate via message passing. Actors can run on any thread (main or a worker) without coupling the actor topology to execution context, allowing for flexible performance optimization and clear separation of concerns.
 
-**Who is this for?** Ensemble is an architectural experiment for the small percentage of client-side applications that face composition and scaling challenges I outline below. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or innovative frontends where maintaining development velocity as complexity grows becomes a primary concern.
+**Who is this for?**
+
+Ensemble is an experiment framework for folks who have run into compositional/multi-threading challenges with traditional frameworks and tools. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or innovative frontends where maintaining development velocity as complexity grows becomes a primary concern.
 
 ## The Challenge
-For large-scale and innovative frontends, maintaining development velocity as complexity grows presents some fundamental architectural challenges:
+For large-scale and innovative frontends, some fundamental architectural challenges can impact developer velocity:
 
 **State Ownership**
+
 Without clear ownership boundaries, there's no place to enforce business rules. State can be modified from multiple places, so you can't guarantee invariants hold. Business logic either gets duplicated across consumers (every component checks the same rules) or bypassed entirely (some code path forgets to validate). The logic and the state it manages become separated, breaking encapsulation.
 
 **State Derivation**
+
 Deriving state from multiple sources is common but often awkward. Selectors help but don't solve cross-cutting concerns. When you need to compute state based on multiple independent pieces of data, the patterns available don't always provide a clean way to express those dependencies.
 
 **Singleton Everything**
+
 When your state management is built around singletons, composition becomes difficult. You can't easily instantiate multiple instances of the same logic with different configurations. Features can't cleanly depend on each other without coupling to a global instance.
 
 **Logic Placement**
+
 Business logic needs a home. When it lives in UI components, testing and reasoning about it independently becomes harder. When it's scattered across action creators, reducers, and selectors, following the flow of logic requires jumping between multiple abstractions.
 
 Ensemble provides an actor model architecture where each actor has strict state ownership, can declare dependencies on other actors, and derives its own state through effects. Actors are composable units, not singletons. You can have multiple instances, and features can depend on each other through explicit dependency injection.
 
 **Multi-threading as a natural consequence**
+
 Because actors communicate through message passing with clear boundaries, they can run anywhere. Moving an actor to a worker thread is a configuration change, not an architectural overhaul. The patterns that enable clean composition also make performance optimization straightforward.
 
 ## Core Architecture

@@ -53,7 +53,7 @@ export class DashboardActor extends Actor<DashboardState> {
     windowSize: 300 // Keep last 300 data points (~30 seconds at 10Hz sampling)
   };
 
-  protected deps!: DashboardDeps;
+  protected declare deps: DashboardDeps;
   private metricQueue: ProcessedMetrics[] = [];
   private replayInterval: number | null = null;
   private readonly replayRate = 10; // Add one point every 10ms for smooth animation
