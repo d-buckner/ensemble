@@ -1,18 +1,12 @@
+import { WORKER_PATHS } from  'virtual:worker-manifest';
 import { MAIN_THREAD_ID } from '../constants';
+
 
 type MessageHandler = (data: ArrayBuffer | Uint8Array) => void;
 
 export class WorkerRegistry {
   private registry: Record<string, Worker> = {};
   private messageHandler?: MessageHandler;
-  private workerPaths: Record<string, string> = {};
-
-  /**
-   * Set the worker paths from the manifest
-   */
-  setWorkerPaths(paths: Record<string, string>): void {
-    this.workerPaths = paths;
-  }
 
   /**
    * Set the message handler that will be called when workers send messages
@@ -39,7 +33,7 @@ export class WorkerRegistry {
     }
 
     // Get worker path from manifest (with content hash in production)
-    const workerPath = this.workerPaths[threadId];
+    const workerPath = WORKER_PATHS[threadId];
     if (!workerPath) {
       throw new Error(`Worker path not found in manifest for threadId: ${threadId}`);
     }

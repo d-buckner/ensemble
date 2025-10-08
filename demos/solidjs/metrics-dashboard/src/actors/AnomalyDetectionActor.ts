@@ -1,6 +1,7 @@
 import { Actor, thread } from '@d-buckner/ensemble-core';
-import type { ActorClient } from '@d-buckner/ensemble-core';
 import type { StatisticsActor, ProcessedBatch, ProcessedMetrics } from './StatisticsActor';
+import type { ActorClient } from '@d-buckner/ensemble-core';
+
 
 export interface Anomaly {
   timestamp: number;

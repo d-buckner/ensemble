@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { WorkerRegistry } from './WorkerRegistry';
 import { MAIN_THREAD_ID } from '../constants';
+import { WorkerRegistry } from './WorkerRegistry';
 
 // Mock the virtual manifest module
-vi.mock('virtual:ensemble-worker-manifest', () => ({
+vi.mock('virtual:worker-manifest', () => ({
   WORKER_PATHS: {
     'worker-1': './workers/worker-1-abc123.js',
     'worker-2': './workers/worker-2-def456.js',
@@ -50,18 +50,8 @@ describe('WorkerRegistry', () => {
   let registry: WorkerRegistry;
   let originalWorker: typeof Worker;
 
-  const mockWorkerPaths = {
-    'worker-1': './workers/worker-1-abc123.js',
-    'worker-2': './workers/worker-2-def456.js',
-    'worker-3': './workers/worker-3-ghi789.js',
-    'compute': './workers/compute-jkl012.js',
-    'io-thread': './workers/io-thread-mno345.js',
-    'database': './custom-workers/database-pqr678.js',
-  };
-
   beforeEach(() => {
     registry = new WorkerRegistry();
-    registry.setWorkerPaths(mockWorkerPaths);
 
     // Mock global Worker
     originalWorker = globalThis.Worker;

@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import ActorSystem from './core/ActorSystem';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Actor } from './core/Actor';
+import ActorSystem from './core/ActorSystem';
+import { createActorToken } from './core/ActorToken';
 import { action, effect } from './core/decorators';
 import type { ActorClient } from './core/ActorClient';
-import { createActorToken } from './core/ActorToken';
+
+
+// Mock the virtual manifest module
+vi.mock('virtual:worker-manifest', () => ({
+  WORKER_PATHS: {}
+}));
 
 /**
  * E2E Integration Test

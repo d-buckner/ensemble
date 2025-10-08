@@ -1,6 +1,7 @@
+import { ensemblePlugin } from '@d-buckner/ensemble-vite-plugin';
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
-import { ensemblePlugin } from '@d-buckner/ensemble-vite-plugin';
+
 
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? './' : '/',

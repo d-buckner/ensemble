@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { action, effect, thread, getActionMetadata, getEffectMetadata, getThreadMetadata } from './decorators';
 import { Actor } from './Actor';
+import { action, effect, thread, getActionMetadata, getEffectMetadata, getThreadMetadata } from './decorators';
+
 
 describe('Decorators', () => {
   describe('@action decorator', () => {
@@ -113,7 +114,7 @@ describe('Decorators', () => {
           badEffect() {}
         }
         // Force decorator evaluation by accessing prototype
-        TestActor.prototype;
+        void TestActor.prototype;
       }).toThrow('Invalid effect subscription format');
     });
 

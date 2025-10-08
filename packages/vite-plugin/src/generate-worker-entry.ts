@@ -1,5 +1,5 @@
-import type { ActorInfo } from './scan-actors';
 import { WORKER_ENTRY_TEMPLATE } from './worker-entry-template';
+import type { ActorInfo } from './scan-actors';
 
 /**
  * Generates a worker entry file content for a specific thread

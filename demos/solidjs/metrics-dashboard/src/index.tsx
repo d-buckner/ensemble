@@ -1,13 +1,14 @@
 import 'reflect-metadata';
-import { render } from 'solid-js/web';
 import { ActorSystem } from '@d-buckner/ensemble-core';
 import { EnsembleProvider } from '@d-buckner/ensemble-solidjs';
-import { MetricGeneratorActor } from './actors/MetricGeneratorActor';
-import { StatisticsActor } from './actors/StatisticsActor';
+import { render } from 'solid-js/web';
 import { AnomalyDetectionActor } from './actors/AnomalyDetectionActor';
 import { DashboardActor } from './actors/DashboardActor';
-import { GeneratorToken, StatisticsToken, AnomalyDetectionToken, DashboardToken } from './tokens';
+import { MetricGeneratorActor } from './actors/MetricGeneratorActor';
+import { StatisticsActor } from './actors/StatisticsActor';
 import { App } from './App';
+import { GeneratorToken, StatisticsToken, AnomalyDetectionToken, DashboardToken } from './tokens';
+
 
 async function main() {
   const system = new ActorSystem({

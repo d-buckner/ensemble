@@ -1,5 +1,6 @@
-import { createSignal, createEffect } from 'solid-js';
 import * as d3 from 'd3';
+import { createSignal, createEffect } from 'solid-js';
+
 
 interface AnimatedNumberProps {
   value: number;

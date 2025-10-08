@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ActorSystem, Actor, createActorToken, action } from '@d-buckner/ensemble-core';
 import { render, renderHook, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EnsembleProvider, useActorSystem, useActor } from './index';
-import { ActorSystem, Actor, createActorToken, action } from '@d-buckner/ensemble-core';
 
 // Mock the virtual manifest module
-vi.mock('virtual:ensemble-worker-manifest', () => ({
+vi.mock('virtual:worker-manifest', () => ({
   WORKER_PATHS: {}
 }));
 

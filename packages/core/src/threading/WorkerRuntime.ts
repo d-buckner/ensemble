@@ -1,10 +1,11 @@
-import type { Actor, ActorMetadata, ActorConstructor } from '../core/Actor';
-import type WorkerBus from '../messaging/WorkerBus';
-import { ActorBus } from '../messaging/ActorBus';
 import { ActorClient } from '../core/ActorClient';
-import type { AllEvents } from '../messaging/types';
+import { ActorBus } from '../messaging/ActorBus';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
+import type { Actor, ActorMetadata, ActorConstructor } from '../core/Actor';
 import type { WithDeps } from '../core/ActorSystem';
+import type { AllEvents } from '../messaging/types';
+import type WorkerBus from '../messaging/WorkerBus';
+
 
 export interface InstantiateCommand {
   type: 'instantiate';

@@ -50,7 +50,7 @@ turbo.stdout.on('data', (data) => {
 
   lines.forEach(line => {
     // Strip ANSI color codes for parsing
-    // eslint-disable-next-line no-control-regex
+     
     const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
 
     // Extract package name from lines like "@d-buckner/ensemble-core:test:"

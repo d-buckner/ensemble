@@ -1,8 +1,10 @@
+import { pack, unpack } from 'msgpackr';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { MAIN_THREAD_ID } from '../constants';
 import { MainBus } from './MainBus';
 import type ActorSystem from '../core/ActorSystem';
 import type { WorkerRegistry } from '../threading/WorkerRegistry';
-import { MAIN_THREAD_ID } from '../constants';
+
 
 // Mock msgpackr
 vi.mock('msgpackr', () => ({
@@ -16,8 +18,6 @@ vi.mock('msgpackr', () => ({
     return JSON.parse(str);
   }),
 }));
-
-import { pack, unpack } from 'msgpackr';
 
 // Mock ActorSystem
 class MockActorSystem {

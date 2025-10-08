@@ -1,5 +1,6 @@
 import { Actor, action } from '@d-buckner/ensemble-core';
 
+
 export interface CounterState extends Record<string, unknown> {
   count: number;
 }

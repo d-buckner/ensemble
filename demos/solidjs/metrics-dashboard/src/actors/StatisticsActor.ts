@@ -1,6 +1,7 @@
 import { Actor, thread } from '@d-buckner/ensemble-core';
-import type { ActorClient } from '@d-buckner/ensemble-core';
 import type { MetricGeneratorActor, MetricBatch } from './MetricGeneratorActor';
+import type { ActorClient } from '@d-buckner/ensemble-core';
+
 
 export interface ProcessedMetrics {
   timestamp: number;
@@ -212,9 +213,9 @@ export class StatisticsActor extends Actor<StatisticsState> {
 
   private simulateHeavyComputation(): void {
     // Simulate CPU-intensive statistical computation
-    let sum = 0;
+    let _sum = 0;
     for (let i = 0; i < 10000; i++) {
-      sum += Math.sin(i) * Math.cos(i) * Math.tan(i / 100);
+      _sum += Math.sin(i) * Math.cos(i) * Math.tan(i / 100);
     }
   }
 }

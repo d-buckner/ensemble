@@ -1,7 +1,7 @@
-import { createSignal, onCleanup, createContext, useContext } from 'solid-js';
-import type { JSX } from 'solid-js';
-import type { Actor, ActorSystem, ActorToken, StateOf, ActionsOf } from '@d-buckner/ensemble-core';
 import { PROTOCOL_EVENTS } from '@d-buckner/ensemble-core';
+import { createSignal, onCleanup, createContext, useContext } from 'solid-js';
+import type { Actor, ActorSystem, ActorToken, StateOf, ActionsOf } from '@d-buckner/ensemble-core';
+import type { JSX } from 'solid-js';
 
 // Convert each property to a signal accessor
 type ReactiveState<S extends Record<string, unknown>> = {

@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import ActorSystem from './ActorSystem';
 import { Actor } from './Actor';
+import ActorSystem from './ActorSystem';
 import { createActorToken } from './ActorToken';
 import type { ActorToken } from './ActorToken';
+
+
+// Mock the virtual manifest module
+vi.mock('virtual:worker-manifest', () => ({
+  WORKER_PATHS: {}
+}));
 
 // Mock Worker class
 class MockWorker {

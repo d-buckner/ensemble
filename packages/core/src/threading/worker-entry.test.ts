@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { pack } from 'msgpackr';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 
 describe('worker-entry', () => {
   let messageListeners: Array<(event: any) => void> = [];

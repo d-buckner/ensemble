@@ -2,18 +2,18 @@
  * ActorSystem is the truth for the Actor topology
  */
 
-import type { Actor, ActorMetadata, ActorConstructor } from './Actor';
-import { WorkerRegistry } from '../threading/WorkerRegistry';
+import { pack } from 'msgpackr';
 import { MAIN_THREAD_ID } from '../constants';
-import { MainBus } from '../messaging/MainBus';
 import { ActorBus } from '../messaging/ActorBus';
+import { MainBus } from '../messaging/MainBus';
+import { WorkerRegistry } from '../threading/WorkerRegistry';
+import { Logger } from '../utils/Logger';
 import { ActorClient } from './ActorClient';
 import { getEffectMetadata, getThreadMetadata } from './decorators';
-import type { AllEvents } from '../messaging/types';
+import type { Actor, ActorMetadata, ActorConstructor } from './Actor';
 import type { ActorToken } from './ActorToken';
-import { pack } from 'msgpackr';
+import type { AllEvents } from '../messaging/types';
 import type { InstantiateCommand } from '../threading/WorkerRuntime';
-import { Logger } from '../utils/Logger';
 
 
 // Registration interface for actor instances
@@ -164,13 +164,6 @@ export default class ActorSystem {
 
     // Load worker manifest and register workers
     if (this.threadsToRegister.size > 0) {
-      try {
-        const module = await import('virtual:ensemble-worker-manifest');
-        this.workerRegistry.setWorkerPaths(module.WORKER_PATHS);
-      } catch {
-        throw new Error('Worker manifest not found. Ensure @d-buckner/ensemble-vite-plugin is installed.');
-      }
-
       for (const threadId of this.threadsToRegister) {
         this.workerRegistry.add(threadId);
       }

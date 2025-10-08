@@ -2,6 +2,7 @@ import { createActor } from '@d-buckner/ensemble-solidjs';
 import { CounterToken } from './tokens';
 import './style.css';
 
+
 export function App() {
   const counter = createActor(CounterToken);
 

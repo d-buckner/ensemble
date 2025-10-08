@@ -1,7 +1,7 @@
-import type { Actor, StateOf, EventsOf } from './Actor';
-import type { AllEvents, TypedListener } from '../messaging/types';
-import type { IActorBus } from '../messaging/ActorBus';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
+import type { Actor, StateOf, EventsOf } from './Actor';
+import type { IActorBus } from '../messaging/ActorBus';
+import type { AllEvents, TypedListener } from '../messaging/types';
 
 // Exclude all base Actor class methods and properties
 type BaseActorKeys = keyof Actor<any, any>;

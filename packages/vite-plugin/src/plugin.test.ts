@@ -1,8 +1,10 @@
+import { createHash } from 'crypto';
+import { mkdirSync, writeFileSync, rmSync } from 'fs';
+import { join } from 'path';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ensemblePlugin } from './plugin';
 import type { Plugin, ResolvedConfig } from 'vite';
-import { mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
+
 
 describe('ensemblePlugin', () => {
   describe('configuration', () => {
@@ -84,7 +86,7 @@ describe('ensemblePlugin', () => {
     it('should resolve virtual worker modules', async () => {
       const plugin = ensemblePlugin() as Plugin;
 
-      const result = await (plugin.resolveId as Function).call(
+      const result = await (plugin.resolveId as (id: string, importer: string | undefined) => Promise<string | undefined>)!.call(
         {},
         'virtual:ensemble-worker-worker-1',
         undefined
@@ -96,19 +98,19 @@ describe('ensemblePlugin', () => {
     it('should resolve virtual manifest module', async () => {
       const plugin = ensemblePlugin() as Plugin;
 
-      const result = await (plugin.resolveId as Function).call(
+      const result = await (plugin.resolveId as (id: string, importer: string | undefined) => Promise<string | undefined>)!.call(
         {},
-        'virtual:ensemble-worker-manifest',
+        'virtual:worker-manifest',
         undefined
       );
 
-      expect(result).toBe('\0virtual:ensemble-worker-manifest');
+      expect(result).toBe('\0virtual:worker-manifest');
     });
 
     it('should not resolve non-virtual modules', async () => {
       const plugin = ensemblePlugin() as Plugin;
 
-      const result = await (plugin.resolveId as Function).call(
+      const result = await (plugin.resolveId as (id: string, importer: string | undefined) => Promise<string | undefined>)!.call(
         {},
         './some-regular-module.ts',
         undefined
@@ -140,7 +142,7 @@ export class TestActor extends Actor {
         await plugin.configResolved.call({}, mockConfig, {} as any);
       }
 
-      const code = await (plugin.load as Function).call(
+      const code = await (plugin.load as (id: string) => Promise<string | undefined>)!.call(
         {},
         '\0virtual:ensemble-worker-worker-1'
       );
@@ -176,12 +178,12 @@ export class TestActor extends Actor {
 
       // Call buildStart to populate workerPaths
       if (plugin.buildStart) {
-        await (plugin.buildStart as Function).call({});
+        await (plugin.buildStart as () => Promise<void>)!.call({});
       }
 
-      const code = await (plugin.load as Function).call(
+      const code = await (plugin.load as (id: string) => Promise<string | undefined>)!.call(
         {},
-        '\0virtual:ensemble-worker-manifest'
+        '\0virtual:worker-manifest'
       );
 
       expect(code).toContain('export const WORKER_PATHS');
@@ -192,7 +194,7 @@ export class TestActor extends Actor {
     it('should return undefined for non-virtual modules in load', async () => {
       const plugin = ensemblePlugin() as Plugin;
 
-      const result = await (plugin.load as Function).call(
+      const result = await (plugin.load as (id: string) => Promise<string | undefined>)!.call(
         {},
         './some-regular-module.ts'
       );
@@ -234,26 +236,26 @@ export class Worker2Actor extends Actor {
         await plugin.configResolved.call({}, mockConfig, {} as any);
       }
 
-      const worker1Code = await (plugin.load as Function).call(
+      const worker1Code = await (plugin.load as (id: string) => Promise<string | undefined>)!.call(
         {},
         '\0virtual:ensemble-worker-worker-1'
       );
 
-      const worker2Code = await (plugin.load as Function).call(
+      const worker2Code = await (plugin.load as (id: string) => Promise<string | undefined>)!.call(
         {},
         '\0virtual:ensemble-worker-worker-2'
       );
 
       // Worker 1 should import Worker1Actor but not Worker2Actor
-      expect(worker1Code).toContain("import { Worker1Actor }");
+      expect(worker1Code).toContain('import { Worker1Actor }');
       expect(worker1Code).toContain("'Worker1Actor': Worker1Actor");
-      expect(worker1Code).not.toContain("import { Worker2Actor }");
+      expect(worker1Code).not.toContain('import { Worker2Actor }');
       expect(worker1Code).not.toContain("'Worker2Actor': Worker2Actor,");
 
       // Worker 2 should import Worker2Actor but not Worker1Actor
-      expect(worker2Code).toContain("import { Worker2Actor }");
+      expect(worker2Code).toContain('import { Worker2Actor }');
       expect(worker2Code).toContain("'Worker2Actor': Worker2Actor");
-      expect(worker2Code).not.toContain("import { Worker1Actor }");
+      expect(worker2Code).not.toContain('import { Worker1Actor }');
       expect(worker2Code).not.toContain("'Worker1Actor': Worker1Actor,");
     });
   });
@@ -292,7 +294,7 @@ export class TestActor extends Actor {
 
       await plugin.configResolved!.call({}, mockConfig, {} as any);
 
-      const code = await (plugin.load as Function).call(
+      const code = await (plugin.load as (id: string) => Promise<string | undefined>)!.call(
         {},
         '\0virtual:ensemble-worker-worker-1'
       );
@@ -350,15 +352,15 @@ export class Worker2Actor extends Actor {
         plugin._test.workerBundles.set('worker-2', bundledCode2);
 
         // Compute hashes like buildStart would
-        const hash1 = require('crypto').createHash('sha256').update(bundledCode1).digest('hex').substring(0, 8);
-        const hash2 = require('crypto').createHash('sha256').update(bundledCode2).digest('hex').substring(0, 8);
+        const hash1 = createHash('sha256').update(bundledCode1).digest('hex').substring(0, 8);
+        const hash2 = createHash('sha256').update(bundledCode2).digest('hex').substring(0, 8);
 
         plugin._test.workerPaths['worker-1'] = `./workers/worker-1-${hash1}.js`;
         plugin._test.workerPaths['worker-2'] = `./workers/worker-2-${hash2}.js`;
       }
 
       if (plugin.generateBundle) {
-        await (plugin.generateBundle as Function).call(mockContext, {} as any, {} as any);
+        await (plugin.generateBundle as (options: any, bundle: any) => Promise<void>)!.call(mockContext, {} as any, {} as any);
       }
 
       // Should emit worker bundles + manifest = 3 files
@@ -424,12 +426,12 @@ export class TestActor extends Actor {
         plugin._test.workerBundles.set('compute', bundledCode);
 
         // Compute hash like buildStart would
-        const hash = require('crypto').createHash('sha256').update(bundledCode).digest('hex').substring(0, 8);
+        const hash = createHash('sha256').update(bundledCode).digest('hex').substring(0, 8);
         plugin._test.workerPaths['compute'] = `./custom-dir/compute-${hash}.js`;
       }
 
       if (plugin.generateBundle) {
-        await (plugin.generateBundle as Function).call(mockContext, {} as any, {} as any);
+        await (plugin.generateBundle as (options: any, bundle: any) => Promise<void>)!.call(mockContext, {} as any, {} as any);
       }
 
       // Should emit worker + manifest
@@ -470,11 +472,11 @@ export class MainActor extends Actor {
       await plugin.configResolved!.call({}, mockConfig, {} as any);
 
       if (plugin.buildStart) {
-        await (plugin.buildStart as Function).call(mockContext);
+        await (plugin.buildStart as () => Promise<void>)!.call(mockContext);
       }
 
       if (plugin.generateBundle) {
-        await (plugin.generateBundle as Function).call(mockContext, {} as any, {} as any);
+        await (plugin.generateBundle as (options: any, bundle: any) => Promise<void>)!.call(mockContext, {} as any, {} as any);
       }
 
       expect(mockEmitFile).not.toHaveBeenCalled();

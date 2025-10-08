@@ -1,10 +1,11 @@
 import 'reflect-metadata';
-import { render } from 'solid-js/web';
 import { ActorSystem } from '@d-buckner/ensemble-core';
 import { EnsembleProvider } from '@d-buckner/ensemble-solidjs';
+import { render } from 'solid-js/web';
 import { CounterActor } from './actors/CounterActor';
-import { CounterToken } from './tokens';
 import { App } from './App';
+import { CounterToken } from './tokens';
+
 
 async function main() {
   const system = new ActorSystem();

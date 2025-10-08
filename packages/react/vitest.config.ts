@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
+
 export default defineConfig({
   test: {
     environment: 'jsdom',
@@ -7,7 +8,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'virtual:ensemble-worker-manifest': new URL('./src/__mocks__/worker-manifest.ts', import.meta.url).pathname,
+      'virtual:worker-manifest': new URL('./src/__mocks__/worker-manifest.ts', import.meta.url).pathname,
     },
   },
 });

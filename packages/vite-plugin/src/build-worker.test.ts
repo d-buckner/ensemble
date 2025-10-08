@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildWorkerBundle } from './build-worker';
 
+
 describe('buildWorkerBundle', () => {
   it('should return a non-empty string', async () => {
     const code = await buildWorkerBundle();

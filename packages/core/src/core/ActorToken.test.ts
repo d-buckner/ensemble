@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createActorToken } from './ActorToken';
 import { Actor } from './Actor';
+import { createActorToken } from './ActorToken';
 
 // Mock actor for testing
 class TestActor extends Actor<Record<string, unknown>> {

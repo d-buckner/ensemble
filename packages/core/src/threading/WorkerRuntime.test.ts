@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Actor, type ActorConstructor } from '../core/Actor';
 import { action } from '../core/decorators';
-import WorkerRuntime from './WorkerRuntime';
 import WorkerBus from '../messaging/WorkerBus';
+import WorkerRuntime from './WorkerRuntime';
 
 // Mock the global self object for worker environment
 (globalThis as any).self = {

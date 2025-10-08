@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { unpack } from 'msgpackr';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import WorkerBus from './WorkerBus';
 
 // Mock self.postMessage for worker environment

@@ -1,10 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createWorkerMiddleware } from './dev-server';
-import type { IncomingMessage, ServerResponse } from 'http';
-import type { ActorInfo } from './scan-actors';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, relative } from 'path';
-import * as bundleWorkerModule from './bundle-worker';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createWorkerMiddleware } from './dev-server';
+import type { ActorInfo } from './scan-actors';
+import type { IncomingMessage, ServerResponse } from 'http';
 
 // Mock the bundleVirtualWorker function to avoid complex Rollup bundling in tests
 vi.mock('./bundle-worker', () => ({
@@ -240,9 +239,9 @@ export class Worker2Actor extends Actor {
     await middleware(req1, res1, vi.fn());
 
     const worker1Code = (res1.end as any).mock.calls[0][0];
-    expect(worker1Code).toContain("import { Worker1Actor }");
+    expect(worker1Code).toContain('import { Worker1Actor }');
     expect(worker1Code).toContain("'Worker1Actor': Worker1Actor");
-    expect(worker1Code).not.toContain("import { Worker2Actor }");
+    expect(worker1Code).not.toContain('import { Worker2Actor }');
 
     // Request worker-2
     const req2 = { url: '/workers/worker-2.js' } as IncomingMessage;
@@ -254,8 +253,8 @@ export class Worker2Actor extends Actor {
     await middleware(req2, res2, vi.fn());
 
     const worker2Code = (res2.end as any).mock.calls[0][0];
-    expect(worker2Code).toContain("import { Worker2Actor }");
+    expect(worker2Code).toContain('import { Worker2Actor }');
     expect(worker2Code).toContain("'Worker2Actor': Worker2Actor");
-    expect(worker2Code).not.toContain("import { Worker1Actor }");
+    expect(worker2Code).not.toContain('import { Worker1Actor }');
   });
 });

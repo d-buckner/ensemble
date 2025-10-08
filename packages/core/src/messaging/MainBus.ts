@@ -1,10 +1,10 @@
 import { pack, unpack } from 'msgpackr';
-import { ThreadBus } from './ThreadBus';
-import type { WorkerRegistry } from '../threading/WorkerRegistry';
-import type ActorSystem from '../core/ActorSystem';
 import { MAIN_THREAD_ID } from '../constants';
-import { PROTOCOL_EVENTS } from './protocol-events';
 import { Logger } from '../utils/Logger';
+import { PROTOCOL_EVENTS } from './protocol-events';
+import { ThreadBus } from './ThreadBus';
+import type ActorSystem from '../core/ActorSystem';
+import type { WorkerRegistry } from '../threading/WorkerRegistry';
 
 /**
  * MainBus runs on the main thread and routes messages between:

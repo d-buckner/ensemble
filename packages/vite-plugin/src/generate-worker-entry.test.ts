@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { generateWorkerEntry } from './generate-worker-entry';
 import type { ActorInfo } from './scan-actors';
 
+
 describe('generateWorkerEntry', () => {
   it('should generate worker entry with single actor', () => {
     const actors: ActorInfo[] = [
@@ -16,7 +17,7 @@ describe('generateWorkerEntry', () => {
     const allActors = new Map(actors.map(a => [a.className, a]));
     const result = generateWorkerEntry('worker-1', actors, allActors);
 
-    expect(result).toContain("import { CounterActor }");
+    expect(result).toContain('import { CounterActor }');
     expect(result).toContain("from './src/actors/CounterActor'");
     expect(result).toContain("'CounterActor': CounterActor");
     expect(result).toContain("import { WorkerBus, WorkerRuntime } from '@d-buckner/ensemble-core'");
@@ -48,9 +49,9 @@ describe('generateWorkerEntry', () => {
     const allActors = new Map(actors.map(a => [a.className, a]));
     const result = generateWorkerEntry('worker-1', actors, allActors);
 
-    expect(result).toContain("import { Actor1 }");
-    expect(result).toContain("import { Actor2 }");
-    expect(result).toContain("import { Actor3 }");
+    expect(result).toContain('import { Actor1 }');
+    expect(result).toContain('import { Actor2 }');
+    expect(result).toContain('import { Actor3 }');
     expect(result).toContain("'Actor1': Actor1");
     expect(result).toContain("'Actor2': Actor2");
     expect(result).toContain("'Actor3': Actor3");

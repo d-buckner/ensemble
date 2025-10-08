@@ -1,9 +1,10 @@
+import { readFileSync } from 'fs';
+import { resolve, relative } from 'path';
 import { parse } from '@babel/parser';
 import traverse from '@babel/traverse';
 import * as t from '@babel/types';
-import { readFileSync } from 'fs';
 import { glob } from 'glob';
-import { resolve, relative } from 'path';
+
 
 export interface ActorInfo {
   className: string;

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Actor } from './Actor';
-import type { AllEvents } from '../messaging/types';
-import { action } from './decorators';
 import { MockBus } from '../testing/mocks/MockBus';
+import { Actor } from './Actor';
+import { action } from './decorators';
+import type { AllEvents } from '../messaging/types';
+
 
 interface TestState extends Record<string, unknown> {
   count: number;

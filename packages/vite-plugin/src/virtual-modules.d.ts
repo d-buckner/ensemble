@@ -2,7 +2,7 @@
  * TypeScript declarations for Ensemble virtual modules
  */
 
-declare module 'virtual:ensemble-worker-manifest' {
+declare module 'virtual:worker-manifest' {
   /**
    * Maps thread IDs to their worker bundle paths (with content hashes in production)
    *

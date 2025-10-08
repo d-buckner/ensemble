@@ -1,8 +1,9 @@
-import type { Connect, ViteDevServer } from 'vite';
-import type { ActorInfo } from './scan-actors';
-import { generateWorkerEntry } from './generate-worker-entry';
-import { bundleVirtualWorker, type BundleResult } from './bundle-worker';
 import { statSync } from 'fs';
+import { bundleVirtualWorker, type BundleResult } from './bundle-worker';
+import { generateWorkerEntry } from './generate-worker-entry';
+import type { ActorInfo } from './scan-actors';
+import type { Connect, ViteDevServer } from 'vite';
+
 
 const RESOLVED_VIRTUAL_PREFIX = '\0virtual:ensemble-worker-';
 

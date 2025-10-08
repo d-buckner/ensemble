@@ -1,8 +1,8 @@
 import { produceWithPatches, enablePatches, type Draft } from 'immer';
+import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
+import { getActionMetadata } from './decorators';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { AllEvents } from '../messaging/types';
-import { getActionMetadata } from './decorators';
-import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 
 // Enable Immer patches plugin
 enablePatches();

@@ -1,14 +1,15 @@
-import type { Plugin, ResolvedConfig } from 'vite';
-import type { EnsemblePluginOptions } from './types';
-import { createWorkerMiddleware } from './dev-server';
-import { scanForThreadActors, scanAllActors, type ActorInfo } from './scan-actors';
-import { generateWorkerEntry } from './generate-worker-entry';
-import { bundleVirtualWorker } from './bundle-worker';
 import { createHash } from 'crypto';
+import { bundleVirtualWorker } from './bundle-worker';
+import { createWorkerMiddleware } from './dev-server';
+import { generateWorkerEntry } from './generate-worker-entry';
+import { scanForThreadActors, scanAllActors, type ActorInfo } from './scan-actors';
+import type { EnsemblePluginOptions } from './types';
+import type { Plugin, ResolvedConfig } from 'vite';
+
 
 const VIRTUAL_MODULE_PREFIX = 'virtual:ensemble-worker-';
 const RESOLVED_VIRTUAL_PREFIX = '\0' + VIRTUAL_MODULE_PREFIX;
-const MANIFEST_MODULE_ID = 'virtual:ensemble-worker-manifest';
+const MANIFEST_MODULE_ID = 'virtual:worker-manifest';
 const RESOLVED_MANIFEST_ID = '\0' + MANIFEST_MODULE_ID;
 
 export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
@@ -17,7 +18,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
   let config: ResolvedConfig;
   let actorsByThread: Map<string, ActorInfo[]> = new Map();
   let allActors: Map<string, ActorInfo> = new Map();
-  let workerBundles: Map<string, string> = new Map();
+  const workerBundles: Map<string, string> = new Map();
   let workerPaths: Record<string, string> = {};
 
   const plugin: Plugin & { _test?: { workerBundles: Map<string, string>; workerPaths: Record<string, string> } } = {

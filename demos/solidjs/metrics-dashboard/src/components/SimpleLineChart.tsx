@@ -2,6 +2,7 @@ import { createEffect, onCleanup, onMount } from 'solid-js';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
+
 interface SimpleLineChartProps {
   data: Array<{ timestamp: number; value: number }>;
   color: string;

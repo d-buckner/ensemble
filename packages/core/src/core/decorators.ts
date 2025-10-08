@@ -25,11 +25,11 @@ const THREAD_METADATA_KEY = Symbol('actor:thread');
 /**
  * Wraps a method with context management for error tracking
  */
-function wrapWithContext(
-  originalMethod: Function,
+function wrapWithContext<T extends (...args: any[]) => any>(
+  originalMethod: T,
   context: 'action' | 'effect',
   methodName: string
-): Function {
+): T {
   return function(this: any, ...args: any[]) {
     if (this.__setContext) {
       this.__setContext(context, methodName);
@@ -42,7 +42,7 @@ function wrapWithContext(
         this.__clearContext();
       }
     }
-  };
+  } as T;
 }
 
 /**

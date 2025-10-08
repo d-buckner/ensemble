@@ -1,7 +1,8 @@
-import { onMount, onCleanup, createEffect } from 'solid-js';
 import { createActor } from '@d-buckner/ensemble-solidjs';
-import { GeneratorToken } from '../tokens';
 import * as d3 from 'd3';
+import { onMount, onCleanup, createEffect } from 'solid-js';
+import { GeneratorToken } from '../tokens';
+
 
 interface GraphNode {
   id: string;

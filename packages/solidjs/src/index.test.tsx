@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render } from '@solidjs/testing-library';
-import { EnsembleProvider, createActorSystem, createActor } from './index';
 import { ActorSystem, Actor, createActorToken, action } from '@d-buckner/ensemble-core';
+import { render } from '@solidjs/testing-library';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { EnsembleProvider, createActorSystem, createActor } from './index';
 
 // Mock the virtual manifest module
-vi.mock('virtual:ensemble-worker-manifest', () => ({
+vi.mock('virtual:worker-manifest', () => ({
   WORKER_PATHS: {}
 }));
 
@@ -66,7 +66,7 @@ describe('@ensemble/solidjs', () => {
       function TestComponent() {
         try {
           capturedSystem = createActorSystem();
-        } catch (e) {
+        } catch (_e) {
           // Expected to throw if not in provider
         }
         return <div>test</div>;

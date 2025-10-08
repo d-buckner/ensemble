@@ -1,10 +1,11 @@
-import { createSignal, onCleanup, For, Show } from 'solid-js';
 import { createActor } from '@d-buckner/ensemble-solidjs';
-import { GeneratorToken, DashboardToken, AnomalyDetectionToken } from './tokens';
+import { createSignal, onCleanup, For, Show } from 'solid-js';
 import { AnimatedNumber } from './components/AnimatedNumber';
-import { SimpleLineChart } from './components/SimpleLineChart';
 import { DependencyGraphViz } from './components/DependencyGraphViz';
+import { SimpleLineChart } from './components/SimpleLineChart';
+import { GeneratorToken, DashboardToken, AnomalyDetectionToken } from './tokens';
 import './style.css';
+
 
 export function App() {
   const generator = createActor(GeneratorToken);

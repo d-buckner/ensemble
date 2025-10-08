@@ -1,5 +1,5 @@
-import type { TypedListener } from './types';
 import type { ThreadBus } from './ThreadBus';
+import type { TypedListener } from './types';
 
 /**
  * The actor bus is a logical wrapper around the thread bus to provide

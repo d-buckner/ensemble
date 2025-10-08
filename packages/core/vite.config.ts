@@ -1,6 +1,7 @@
-import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
+
 
 export default defineConfig({
   plugins: [dts({ include: ['src'] })],
@@ -14,7 +15,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['immer', 'msgpackr', 'reflect-metadata', 'virtual:ensemble-worker-manifest'],
+      external: ['immer', 'msgpackr', 'reflect-metadata', 'virtual:worker-manifest'],
       output: {
         preserveModules: true,
         preserveModulesRoot: 'src',

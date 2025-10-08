@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { scanForThreadActors } from './scan-actors';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { scanForThreadActors } from './scan-actors';
+
 
 describe('scanForThreadActors', () => {
   const testDir = join(__dirname, '__test-fixtures__');
@@ -140,7 +141,7 @@ export class ValidActor extends Actor {
 
     writeFileSync(
       join(srcDir, 'InvalidActor.ts'),
-      `this is not valid TypeScript code @#$%^&*()`
+      'this is not valid TypeScript code @#$%^&*()'
     );
 
     const result = await scanForThreadActors(testDir, 'src');
@@ -152,7 +153,7 @@ export class ValidActor extends Actor {
   it('should return empty map when no actors found', async () => {
     writeFileSync(
       join(srcDir, 'utils.ts'),
-      `export function helper() { return 42; }`
+      'export function helper() { return 42; }'
     );
 
     const result = await scanForThreadActors(testDir, 'src');
@@ -200,6 +201,6 @@ export class TestActor extends Actor {
     const result = await scanForThreadActors(testDir, 'src');
 
     const actors = result.get('worker-1')!;
-    expect(actors[0].filePath).toMatch(/src[\/\\]actors[\/\\]TestActor\.ts/);
+    expect(actors[0].filePath).toMatch(/src[/\\]actors[/\\]TestActor\.ts/);
   });
 });

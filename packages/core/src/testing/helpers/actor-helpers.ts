@@ -1,9 +1,8 @@
-import type { Actor } from '../../core/Actor';
-import type { AllEvents } from '../../messaging/types';
-import type { ActorClient } from '../../core/ActorClient';
-import { MockBus } from '../mocks/MockBus';
-import type { ActorMetadata } from '../../core/Actor';
+import { ActorClient } from '../../core/ActorClient';
 import { PROTOCOL_EVENTS } from '../../messaging/protocol-events';
+import { MockBus } from '../mocks/MockBus';
+import type { Actor , ActorMetadata } from '../../core/Actor';
+import type { AllEvents } from '../../messaging/types';
 
 /**
  * Helper utilities for setting up actors and clients in tests
@@ -55,7 +54,7 @@ export function createHydratedClient<TActor extends Actor<any, any>>(
   bus: MockBus<any>;
 } {
   const clientBus = bus ?? new MockBus();
-  const client = new (require('../../core/ActorClient').ActorClient)(
+  const client = new ActorClient(
     clientBus,
     initialState,
     actorClass

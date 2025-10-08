@@ -12,12 +12,19 @@
     "test:summary": "node scripts/test-summary.js",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "dev": "turbo run dev",
     "demo:react:counter": "turbo run dev --filter=demo-react-counter",
     "demo:solidjs:counter": "turbo run dev --filter=demo-solidjs-counter",
     "demo:solidjs:metrics-dashboard": "turbo run dev --filter=demo-solidjs-metrics-dashboard"
   },
   "devDependencies": {
-    "turbo": "^2.3.3"
+    "@eslint/js": "^9.37.0",
+    "eslint": "^9.37.0",
+    "eslint-plugin-import": "^2.32.0",
+    "globals": "^16.4.0",
+    "turbo": "^2.3.3",
+    "typescript-eslint": "^8.46.0"
   }
 }

@@ -1,11 +1,12 @@
 import 'reflect-metadata';
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
 import { ActorSystem } from '@d-buckner/ensemble-core';
 import { EnsembleProvider } from '@d-buckner/ensemble-react';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import { CounterActor } from './actors/CounterActor';
-import { CounterToken } from './tokens';
 import { App } from './App';
+import { CounterToken } from './tokens';
+
 
 async function main() {
   const system = new ActorSystem({

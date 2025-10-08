@@ -1,5 +1,5 @@
-import { unpack } from 'msgpackr';
 import { WorkerBus, WorkerRuntime } from '@d-buckner/ensemble-core';
+import { unpack } from 'msgpackr';
 import type { InstantiateCommand } from '@d-buckner/ensemble-core';
 
 // %ACTOR_IMPORTS%
