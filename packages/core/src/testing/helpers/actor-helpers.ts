@@ -46,7 +46,6 @@ export function setupActorWithBus<
  * Creates a hydrated ActorClient ready for testing
  */
 export function createHydratedClient<TActor extends Actor<any, any>>(
-  actorClass: new (...args: any[]) => TActor,
   initialState: any,
   bus?: MockBus<any>
 ): {
@@ -54,10 +53,9 @@ export function createHydratedClient<TActor extends Actor<any, any>>(
   bus: MockBus<any>;
 } {
   const clientBus = bus ?? new MockBus();
-  const client = new ActorClient(
+  const client = new ActorClient<TActor>(
     clientBus,
-    initialState,
-    actorClass
+    initialState
   );
 
   // Simulate state hydration
