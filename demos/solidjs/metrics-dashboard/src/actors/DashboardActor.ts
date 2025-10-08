@@ -67,7 +67,7 @@ export class DashboardActor extends Actor<DashboardState> {
     console.log('[DashboardActor] onInit called, subscribing to processedBatch and latestAnomaly');
     this.deps.statistics.on('processedBatch', this.bufferBatch.bind(this));
     this.deps.anomalyDetection.on('latestAnomaly', this.addAnomaly.bind(this));
-    this.startAnimation();
+    // Animation starts on-demand when data arrives
   }
 
   onDestroy(): void {
@@ -77,9 +77,17 @@ export class DashboardActor extends Actor<DashboardState> {
   }
 
   private startAnimation(): void {
+    if (this.animationFrameId !== null) return; // Already running
+
     const animate = () => {
-      this.drainBuffer();
-      this.animationFrameId = requestAnimationFrame(animate);
+      const hadData = this.drainBuffer();
+
+      // Continue animation only if there's still data in the buffer
+      if (hadData && this.buffer.length > 0) {
+        this.animationFrameId = requestAnimationFrame(animate);
+      } else {
+        this.animationFrameId = null;
+      }
     };
     this.animationFrameId = requestAnimationFrame(animate);
   }
@@ -108,10 +116,13 @@ export class DashboardActor extends Actor<DashboardState> {
     if (this.buffer.length > 500) {
       this.buffer = this.buffer.slice(-500);
     }
+
+    // Start animation if not already running
+    this.startAnimation();
   }
 
-  private drainBuffer(): void {
-    if (this.buffer.length === 0) return;
+  private drainBuffer(): boolean {
+    if (this.buffer.length === 0) return false;
 
     // Take up to pointsPerFrame metrics from buffer
     const count = Math.min(this.pointsPerFrame, this.buffer.length);
@@ -137,6 +148,8 @@ export class DashboardActor extends Actor<DashboardState> {
       this.trimSeries(draft.chartData.throughputSeries, draft.windowSize);
       this.trimSeries(draft.chartData.errorRateSeries, draft.windowSize);
     });
+
+    return true;
   }
 
   private addAnomaly(anomaly: Anomaly | null): void {
