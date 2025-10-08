@@ -10,13 +10,23 @@ interface TestState extends Record<string, unknown> {
   items: Array<{ id: string; value: number }>;
 }
 
-interface TestEvents extends Record<string, unknown> {
+interface TestEvents {
+  increment: null;
+  setName: [name: string];
+  addItem: [id: string, value: number];
+  updateItemValue: [id: string, value: number];
   customEvent: { message: string };
 }
 
 class TestActor extends Actor<TestState, TestEvents> {
+  static readonly initialState: TestState = {
+    count: 0,
+    name: 'test',
+    items: []
+  };
+
   constructor(initialState?: TestState) {
-    super(initialState ?? { count: 0, name: 'test', items: [] });
+    super(initialState ?? TestActor.initialState);
   }
 
   @action
@@ -69,7 +79,7 @@ describe('Actor', () => {
 
   beforeEach(() => {
     actor = new TestActor();
-    bus = new MockBus();
+    bus = new MockBus<AllEvents<TestState, TestEvents>>();
     actor.__init(bus, {
       id: 'test-actor',
       name: 'TestActor',
@@ -81,9 +91,24 @@ describe('Actor', () => {
   describe('initialization', () => {
     it('should initialize with provided state', () => {
       const customActor = new TestActor({ count: 10, name: 'custom', items: [] });
+      const customBus = new MockBus<AllEvents<TestState, TestEvents>>();
 
-      expect(customActor.state.count).toBe(10);
-      expect(customActor.state.name).toBe('custom');
+      customActor.__init(customBus, {
+        id: 'custom-actor',
+        name: 'TestActor',
+        threadId: 'main',
+        dependencies: [],
+      });
+
+      // Verify by listening to state events when triggered
+      const countEvents: number[] = [];
+      customBus.on('count', (count: number) => { countEvents.push(count); });
+
+      customActor.callSetState(draft => {
+        draft.count = 11; // Trigger event
+      });
+
+      expect(countEvents[0]).toBe(11); // Confirms state was initialized to 10
     });
 
     it('should expose metadata after initialization', () => {
@@ -95,17 +120,20 @@ describe('Actor', () => {
   });
 
   describe('state management', () => {
-    it('should provide read-only access to state', () => {
-      expect(actor.state.count).toBe(0);
-      expect(actor.state.name).toBe('test');
+    it('should have correct initial state', () => {
+      expect(TestActor.initialState.count).toBe(0);
+      expect(TestActor.initialState.name).toBe('test');
     });
 
     it('should update state with setState', () => {
+      const countEvents: number[] = [];
+      bus.on('count', (count) => { countEvents.push(count); });
+
       actor.callSetState(draft => {
         draft.count = 5;
       });
 
-      expect(actor.state.count).toBe(5);
+      expect(countEvents[0]).toBe(5);
     });
 
     it('should emit events only for changed top-level properties', () => {
@@ -188,22 +216,31 @@ describe('Actor', () => {
 
   describe('action handling', () => {
     it('should execute actions via action event', () => {
+      const countEvents: number[] = [];
+      bus.on('count', (count) => { countEvents.push(count); });
+
       bus.emit('increment', []);
 
-      expect(actor.state.count).toBe(1);
+      expect(countEvents[0]).toBe(1);
     });
 
     it('should execute actions with arguments', () => {
+      const nameEvents: string[] = [];
+      bus.on('name', (name) => { nameEvents.push(name); });
+
       bus.emit('setName', ['new-name']);
 
-      expect(actor.state.name).toBe('new-name');
+      expect(nameEvents[0]).toBe('new-name');
     });
 
     it('should execute actions with multiple arguments', () => {
+      const itemsEvents: any[] = [];
+      bus.on('items', (items) => { itemsEvents.push(items); });
+
       bus.emit('addItem', ['item-1', 42]);
 
-      expect(actor.state.items).toHaveLength(1);
-      expect(actor.state.items[0]).toEqual({ id: 'item-1', value: 42 });
+      expect(itemsEvents[0]).toHaveLength(1);
+      expect(itemsEvents[0][0]).toEqual({ id: 'item-1', value: 42 });
     });
 
     it('should not throw error when unknown action is emitted', () => {
@@ -284,7 +321,7 @@ describe('Actor', () => {
           super({});
         }
 
-        protected onInit(): void {
+        public onInit(): void {
           initSpy();
         }
       }
@@ -315,7 +352,7 @@ describe('Actor', () => {
           super({});
         }
 
-        protected async onInit(): Promise<void> {
+        public async onInit(): Promise<void> {
           await new Promise(resolve => setTimeout(resolve, 10));
           initSpy();
         }

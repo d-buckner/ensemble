@@ -7,7 +7,6 @@ Ensemble is a frontend framework for building complex applications using the act
 **Who is this for?** Ensemble is an architectural experiment for the small percentage of client-side applications that face composition and scaling challenges I outline below. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or innovative frontends where maintaining development velocity as complexity grows becomes a primary concern.
 
 ## The Challenge
-
 For large-scale and innovative frontends, maintaining development velocity as complexity grows presents some fundamental architectural challenges:
 
 **State Ownership**

@@ -13,21 +13,35 @@ interface CounterState extends Record<string, unknown> {
 }
 
 interface CounterEvents extends Record<string, unknown> {
+  increment: null;
+  decrement: null;
+  setName: [name: string];
+  reset: null;
   incremented: { oldValue: number; newValue: number };
 }
 
 export class CounterActor extends Actor<CounterState, CounterEvents> {
+  static readonly initialState: CounterState = {
+    count: 0,
+    name: 'test'
+  };
+
   constructor(initialCount = 0) {
     super({ count: initialCount, name: 'test' });
   }
 
   @action
   increment(): void {
-    const oldValue = this.state.count;
+    let oldValue: number;
+    let newValue: number;
+
     this.setState(draft => {
+      oldValue = draft.count;
       draft.count++;
+      newValue = draft.count;
     });
-    this.emit('incremented', { oldValue, newValue: this.state.count });
+
+    this.emit('incremented', { oldValue: oldValue!, newValue: newValue! });
   }
 
   @action
@@ -64,9 +78,21 @@ interface CollectionState extends Record<string, unknown> {
   filter: string;
 }
 
-export class CollectionActor extends Actor<CollectionState> {
+interface CollectionEvents {
+  addItem: [id: string, value: number];
+  removeItem: [id: string];
+  updateItem: [id: string, value: number];
+  setFilter: [filter: string];
+}
+
+export class CollectionActor extends Actor<CollectionState, CollectionEvents> {
+  static readonly initialState: CollectionState = {
+    items: [],
+    filter: ''
+  };
+
   constructor() {
-    super({ items: [], filter: '' });
+    super(CollectionActor.initialState);
   }
 
   @action
@@ -106,9 +132,19 @@ interface ErrorProneState extends Record<string, unknown> {
   value: number;
 }
 
-export class ErrorProneActor extends Actor<ErrorProneState> {
+interface ErrorProneEvents {
+  throwError: null;
+  throwInAction: null;
+  safeAction: null;
+}
+
+export class ErrorProneActor extends Actor<ErrorProneState, ErrorProneEvents> {
+  static readonly initialState: ErrorProneState = {
+    value: 0
+  };
+
   constructor() {
-    super({ value: 0 });
+    super(ErrorProneActor.initialState);
   }
 
   @action

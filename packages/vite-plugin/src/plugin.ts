@@ -1,7 +1,7 @@
 import type { Plugin, ResolvedConfig } from 'vite';
 import type { EnsemblePluginOptions } from './types';
 import { createWorkerMiddleware } from './dev-server';
-import { scanForThreadActors, type ActorInfo } from './scan-actors';
+import { scanForThreadActors, scanAllActors, type ActorInfo } from './scan-actors';
 import { generateWorkerEntry } from './generate-worker-entry';
 import { bundleVirtualWorker } from './bundle-worker';
 
@@ -13,6 +13,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
 
   let config: ResolvedConfig;
   let actorsByThread: Map<string, ActorInfo[]> = new Map();
+  let allActors: Map<string, ActorInfo> = new Map();
   let workerBundles: Map<string, string> = new Map();
 
   const plugin: Plugin & { _test?: { workerBundles: Map<string, string> } } = {
@@ -20,6 +21,9 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
 
     async configResolved(resolvedConfig) {
       config = resolvedConfig;
+
+      // Scan for ALL actors (both main thread and worker)
+      allActors = await scanAllActors(config.root);
 
       // Scan for actors with @thread decorator
       actorsByThread = await scanForThreadActors(config.root);
@@ -34,13 +38,13 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
     load(id) {
       if (id.startsWith(RESOLVED_VIRTUAL_PREFIX)) {
         const threadId = id.slice(RESOLVED_VIRTUAL_PREFIX.length);
-        const actors = actorsByThread.get(threadId);
+        const threadActors = actorsByThread.get(threadId);
 
-        if (!actors) {
+        if (!threadActors) {
           return undefined;
         }
 
-        return generateWorkerEntry(threadId, actors);
+        return generateWorkerEntry(threadId, threadActors, allActors);
       }
     },
 
@@ -54,9 +58,9 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
             virtualModuleId,
             (id) => {
               if (id === virtualModuleId) {
-                const actors = actorsByThread.get(threadId);
-                if (!actors) return undefined;
-                return generateWorkerEntry(threadId, actors);
+                const threadActors = actorsByThread.get(threadId);
+                if (!threadActors) return undefined;
+                return generateWorkerEntry(threadId, threadActors, allActors);
               }
             },
             config.root
@@ -82,7 +86,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
 
     configureServer(server) {
       // Serve the worker during development with smart caching
-      server.middlewares.use(createWorkerMiddleware(workerOutput, actorsByThread, config.root, server));
+      server.middlewares.use(createWorkerMiddleware(workerOutput, actorsByThread, allActors, config.root, server));
     },
   };
 

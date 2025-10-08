@@ -1,13 +1,15 @@
 import { Actor, action, thread } from '@d-buckner/ensemble-core';
 
-export interface CounterState extends Record<string, unknown> {
+export interface CounterState {
   count: number;
 }
 
 @thread('counter')
 export class CounterActor extends Actor<CounterState> {
+  static readonly initialState: CounterState = { count: 0 };
+
   constructor() {
-    super({ count: 0 });
+    super(CounterActor.initialState);
   }
 
   @action

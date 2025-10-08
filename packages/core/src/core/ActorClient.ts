@@ -1,14 +1,7 @@
-import type { Actor } from './Actor';
+import type { Actor, StateOf, EventsOf } from './Actor';
 import type { AllEvents, TypedListener } from '../messaging/types';
 import type { IActorBus } from '../messaging/ActorBus';
-import { getActionMetadata } from './decorators';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
-
-// Extract state type from Actor class
-export type StateOf<T> = T extends Actor<infer S, any> ? S : never;
-
-// Extract events type from Actor class
-export type EventsOf<T> = T extends Actor<any, infer E> ? E : never;
 
 // Exclude all base Actor class methods and properties
 type BaseActorKeys = keyof Actor<any, any>;
@@ -49,21 +42,16 @@ export interface IActorClient<TActor extends Actor<any, any>> {
  */
 export class ActorClient<TActor extends Actor<any, any>> implements IActorClient<TActor> {
   private _state: StateOf<TActor>;
-  private stateShape: StateOf<TActor>;
   private bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>;
-  private actorClass: new (...args: any[]) => TActor;
   private listeners: Map<string, Set<TypedListener<any>>> = new Map();
   public readonly actions: ActionsOf<TActor>;
 
   constructor(
     bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>,
-    stateShape: StateOf<TActor>,
-    actorClass: new (...args: any[]) => TActor
+    initialState: StateOf<TActor>
   ) {
     this.bus = bus;
-    this.actorClass = actorClass;
-    this.stateShape = stateShape;
-    this._state = {} as StateOf<TActor>;
+    this._state = initialState;
     this.actions = this.createActionProxy();
     this.requestStateHydration();
   }
@@ -122,11 +110,11 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
 
   /**
    * Subscribe to all state property events to keep local cache updated
-   * Uses state shape to ensure all properties (including optional) are subscribed
+   * Uses current state to ensure all properties (including optional) are subscribed
    */
   private subscribeToStateUpdates(): void {
-    // Subscribe to each state property key from state shape
-    for (const key in this.stateShape) {
+    // Subscribe to each state property key
+    for (const key in this._state) {
       const callback = (value: any) => {
         // Type-safe state update via index signature
         (this._state as Record<string, unknown>)[key] = value;
@@ -156,7 +144,6 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
    */
   hydrateState(state: StateOf<TActor>): void {
     this._state = state;
-    this.stateShape = state;
 
     // Subscribe to state updates now that we have the actual state shape
     // This is called exactly once after receiving the state response
@@ -168,20 +155,17 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
   }
 
   /**
-   * Create a proxy object with methods for all @action decorated methods
-   * Calling these methods sends action messages to the actor
+   * Create a proxy object that dynamically handles all action calls
+   * Any property access returns a function that emits an action event
    */
   private createActionProxy(): ActionsOf<TActor> {
-    const actionMetadata = getActionMetadata(this.actorClass);
-    const proxy: any = {};
-
-    for (const { methodName } of actionMetadata) {
-      proxy[methodName] = (...args: unknown[]) => {
-        // Emit action event with method name as eventName and args as payload
-        this.bus.emit(methodName, args);
-      };
-    }
-
-    return proxy as ActionsOf<TActor>;
+    return new Proxy({} as ActionsOf<TActor>, {
+      get: (_target, prop: string) => {
+        return (...args: unknown[]) => {
+          // Emit action event with method name as eventName and args as payload
+          this.bus.emit(prop, args);
+        };
+      }
+    });
   }
 }

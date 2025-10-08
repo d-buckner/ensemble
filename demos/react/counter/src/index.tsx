@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ActorSystem, MAIN_THREAD_ID } from '@d-buckner/ensemble-core';
+import { ActorSystem } from '@d-buckner/ensemble-core';
 import { EnsembleProvider } from '@d-buckner/ensemble-react';
 import { CounterActor } from './actors/CounterActor';
 import { CounterToken } from './tokens';
@@ -14,8 +14,7 @@ async function main() {
 
   system.register({
     token: CounterToken,
-    actor: CounterActor,
-    options: {}
+    actor: CounterActor
   });
 
   await system.start();

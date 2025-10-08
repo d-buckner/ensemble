@@ -9,10 +9,12 @@ describe('generateWorkerEntry', () => {
         className: 'CounterActor',
         threadId: 'worker-1',
         filePath: 'src/actors/CounterActor.ts',
+        initialState: { count: 0 },
       },
     ];
 
-    const result = generateWorkerEntry('worker-1', actors);
+    const allActors = new Map(actors.map(a => [a.className, a]));
+    const result = generateWorkerEntry('worker-1', actors, allActors);
 
     expect(result).toContain("import { CounterActor }");
     expect(result).toContain("from './src/actors/CounterActor'");
@@ -27,20 +29,24 @@ describe('generateWorkerEntry', () => {
         className: 'Actor1',
         threadId: 'worker-1',
         filePath: 'src/actors/Actor1.ts',
+        initialState: {},
       },
       {
         className: 'Actor2',
         threadId: 'worker-1',
         filePath: 'src/actors/Actor2.ts',
+        initialState: {},
       },
       {
         className: 'Actor3',
         threadId: 'worker-1',
         filePath: 'src/actors/Actor3.ts',
+        initialState: {},
       },
     ];
 
-    const result = generateWorkerEntry('worker-1', actors);
+    const allActors = new Map(actors.map(a => [a.className, a]));
+    const result = generateWorkerEntry('worker-1', actors, allActors);
 
     expect(result).toContain("import { Actor1 }");
     expect(result).toContain("import { Actor2 }");
@@ -56,10 +62,12 @@ describe('generateWorkerEntry', () => {
         className: 'DeepActor',
         threadId: 'worker-1',
         filePath: 'src/features/billing/actors/DeepActor.ts',
+        initialState: {},
       },
     ];
 
-    const result = generateWorkerEntry('worker-1', actors);
+    const allActors = new Map(actors.map(a => [a.className, a]));
+    const result = generateWorkerEntry('worker-1', actors, allActors);
 
     expect(result).toContain("from './src/features/billing/actors/DeepActor'");
   });
@@ -70,10 +78,12 @@ describe('generateWorkerEntry', () => {
         className: 'WindowsActor',
         threadId: 'worker-1',
         filePath: 'src\\actors\\WindowsActor.ts',
+        initialState: {},
       },
     ];
 
-    const result = generateWorkerEntry('worker-1', actors);
+    const allActors = new Map(actors.map(a => [a.className, a]));
+    const result = generateWorkerEntry('worker-1', actors, allActors);
 
     // Should normalize to forward slashes
     expect(result).toContain("from './src/actors/WindowsActor'");
@@ -86,15 +96,18 @@ describe('generateWorkerEntry', () => {
         className: 'TsActor',
         threadId: 'worker-1',
         filePath: 'src/TsActor.ts',
+        initialState: {},
       },
       {
         className: 'TsxActor',
         threadId: 'worker-1',
         filePath: 'src/TsxActor.tsx',
+        initialState: {},
       },
     ];
 
-    const result = generateWorkerEntry('worker-1', actors);
+    const allActors = new Map(actors.map(a => [a.className, a]));
+    const result = generateWorkerEntry('worker-1', actors, allActors);
 
     expect(result).toContain("from './src/TsActor'");
     expect(result).toContain("from './src/TsxActor'");
@@ -108,10 +121,12 @@ describe('generateWorkerEntry', () => {
         className: 'TestActor',
         threadId: 'worker-1',
         filePath: 'src/TestActor.ts',
+        initialState: {},
       },
     ];
 
-    const result = generateWorkerEntry('worker-1', actors);
+    const allActors = new Map(actors.map(a => [a.className, a]));
+    const result = generateWorkerEntry('worker-1', actors, allActors);
 
     // Should have all necessary imports
     expect(result).toContain("import { unpack } from 'msgpackr'");
@@ -131,7 +146,8 @@ describe('generateWorkerEntry', () => {
   it('should handle empty actor list', () => {
     const actors: ActorInfo[] = [];
 
-    const result = generateWorkerEntry('worker-1', actors);
+    const allActors = new Map();
+    const result = generateWorkerEntry('worker-1', actors, allActors);
 
     expect(result).toContain('const actorRegistry');
     expect(result).toContain('export { workerBus, workerRuntime, actorRegistry }');

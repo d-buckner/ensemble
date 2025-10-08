@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Actor } from '../core/Actor';
+import { Actor, type ActorConstructor } from '../core/Actor';
 import { action } from '../core/decorators';
 import WorkerRuntime from './WorkerRuntime';
 import WorkerBus from '../messaging/WorkerBus';
@@ -9,9 +9,16 @@ import WorkerBus from '../messaging/WorkerBus';
   postMessage: vi.fn(),
 };
 
-class TestActor extends Actor<{ count: number }, { getValue: { value: number } }> {
-  constructor(options: {}) {
-    super({ count: 0 });
+interface TestActorEvents {
+  increment: null;
+  getValue: { value: number };
+}
+
+class TestActor extends Actor<{ count: number }, TestActorEvents> {
+  static readonly initialState = { count: 0 };
+
+  constructor(_options: {}) {
+    super(TestActor.initialState);
   }
 
   @action
@@ -23,20 +30,28 @@ class TestActor extends Actor<{ count: number }, { getValue: { value: number } }
 
   @action
   getValue() {
-    this.emit('getValue', { value: this.state.count });
+    let value: number;
+    this.setState(draft => {
+      value = draft.count;
+    });
+    this.emit('getValue', { value: value! });
   }
 }
 
-class AnotherActor extends Actor<{ value: string }, {}> {
-  constructor(options: {}) {
-    super({ value: 'hello' });
+interface AnotherActorEvents {}
+
+class AnotherActor extends Actor<{ value: string }, AnotherActorEvents> {
+  static readonly initialState = { value: 'hello' };
+
+  constructor(_options: {}) {
+    super(AnotherActor.initialState);
   }
 }
 
 describe('WorkerRuntime', () => {
   let runtime: WorkerRuntime;
   let workerBus: WorkerBus;
-  let actorRegistry: Record<string, new (...args: any[]) => Actor>;
+  let actorRegistry: Record<string, ActorConstructor>;
 
   beforeEach(() => {
     workerBus = new WorkerBus();
@@ -44,7 +59,11 @@ describe('WorkerRuntime', () => {
       TestActor,
       AnotherActor,
     };
-    runtime = new WorkerRuntime(workerBus, actorRegistry);
+    const actorMetadata = {
+      TestActor: { count: 0 },
+      AnotherActor: { value: 'hello' },
+    };
+    runtime = new WorkerRuntime(workerBus, actorRegistry, actorMetadata);
   });
 
   describe('instantiate', () => {
@@ -53,13 +72,13 @@ describe('WorkerRuntime', () => {
         type: 'instantiate',
         actorId: 'test-1',
         className: 'TestActor',
-        options: {},
         metadata: {
           id: 'test-1',
           name: 'TestActor',
           threadId: 'worker-1',
           dependencies: [],
         },
+        dependencies: {},
       });
 
       const actor = runtime.getActor('test-1');
@@ -73,13 +92,13 @@ describe('WorkerRuntime', () => {
         type: 'instantiate',
         actorId: 'test-1',
         className: 'TestActor',
-        options: {},
         metadata: {
           id: 'test-1',
           name: 'TestActor',
           threadId: 'worker-1',
           dependencies: [],
         },
+        dependencies: {},
       });
 
       expect(initSpy).toHaveBeenCalledWith(
@@ -98,13 +117,13 @@ describe('WorkerRuntime', () => {
         type: 'instantiate',
           actorId: 'test-1',
           className: 'UnknownActor',
-          options: {},
           metadata: {
             id: 'test-1',
             name: 'UnknownActor',
             threadId: 'worker-1',
             dependencies: [],
           },
+          dependencies: {},
         })
       ).rejects.toThrow('Actor class not found in registry: UnknownActor');
     });
@@ -114,26 +133,26 @@ describe('WorkerRuntime', () => {
         type: 'instantiate',
         actorId: 'test-1',
         className: 'TestActor',
-        options: {},
         metadata: {
           id: 'test-1',
           name: 'TestActor',
           threadId: 'worker-1',
           dependencies: [],
         },
+        dependencies: {},
       });
 
       await runtime.instantiate({
         type: 'instantiate',
         actorId: 'test-2',
         className: 'AnotherActor',
-        options: {},
         metadata: {
           id: 'test-2',
           name: 'AnotherActor',
           threadId: 'worker-1',
           dependencies: [],
         },
+        dependencies: {},
       });
 
       expect(runtime.getActor('test-1')).toBeInstanceOf(TestActor);
@@ -145,13 +164,13 @@ describe('WorkerRuntime', () => {
         type: 'instantiate',
         actorId: 'test-1',
         className: 'TestActor',
-        options: {},
         metadata: {
           id: 'test-1',
           name: 'TestActor',
           threadId: 'worker-1',
           dependencies: [],
         },
+        dependencies: {},
       });
 
       await expect(
@@ -159,13 +178,13 @@ describe('WorkerRuntime', () => {
         type: 'instantiate',
           actorId: 'test-1',
           className: 'TestActor',
-          options: {},
           metadata: {
             id: 'test-1',
             name: 'TestActor',
             threadId: 'worker-1',
             dependencies: [],
           },
+          dependencies: {},
         })
       ).rejects.toThrow('Actor already instantiated: test-1');
     });
@@ -177,23 +196,25 @@ describe('WorkerRuntime', () => {
         type: 'instantiate',
         actorId: 'test-1',
         className: 'TestActor',
-        options: {},
         metadata: {
           id: 'test-1',
           name: 'TestActor',
           threadId: 'worker-1',
           dependencies: [],
         },
+        dependencies: {},
       });
     });
 
     it('should route actions to the correct actor instance', () => {
-      const actor = runtime.getActor('test-1') as TestActor;
-      expect(actor.state.count).toBe(0);
+      expect(TestActor.initialState.count).toBe(0);
+
+      const countEvents: number[] = [];
+      workerBus.on('test-1', 'count', (payload: unknown) => { countEvents.push(payload as number); });
 
       runtime.handleEvent('test-1', 'increment', []);
 
-      expect(actor.state.count).toBe(1);
+      expect(countEvents[0]).toBe(1);
     });
 
     it('should handle actions for multiple actors', async () => {
@@ -201,24 +222,26 @@ describe('WorkerRuntime', () => {
         type: 'instantiate',
         actorId: 'test-2',
         className: 'TestActor',
-        options: {},
         metadata: {
           id: 'test-2',
           name: 'TestActor',
           threadId: 'worker-1',
           dependencies: [],
         },
+        dependencies: {},
       });
 
-      const actor1 = runtime.getActor('test-1') as TestActor;
-      const actor2 = runtime.getActor('test-2') as TestActor;
+      const actor1CountEvents: number[] = [];
+      const actor2CountEvents: number[] = [];
+      workerBus.on('test-1', 'count', (payload: unknown) => { actor1CountEvents.push(payload as number); });
+      workerBus.on('test-2', 'count', (payload: unknown) => { actor2CountEvents.push(payload as number); });
 
       runtime.handleEvent('test-1', 'increment', []);
       runtime.handleEvent('test-2', 'increment', []);
       runtime.handleEvent('test-2', 'increment', []);
 
-      expect(actor1.state.count).toBe(1);
-      expect(actor2.state.count).toBe(2);
+      expect(actor1CountEvents[0]).toBe(1);
+      expect(actor2CountEvents[1]).toBe(2);
     });
 
     it('should throw error if actor not found when routing action', () => {

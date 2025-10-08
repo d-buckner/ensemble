@@ -1,13 +1,11 @@
 import { produceWithPatches, enablePatches, type Draft } from 'immer';
 import type { IActorBus } from '../messaging/ActorBus';
-import type { EventMap, AllEvents } from '../messaging/types';
+import type { AllEvents } from '../messaging/types';
 import { getActionMetadata } from './decorators';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 
 // Enable Immer patches plugin
 enablePatches();
-
-type UnknownObject = Record<string, unknown> & { [key: string]: unknown };
 
 export interface ActorMetadata {
   id: string;
@@ -16,9 +14,40 @@ export interface ActorMetadata {
   dependencies: string[];
 }
 
+/**
+ * Extract state type from Actor class
+ */
+export type StateOf<T> = T extends Actor<infer S, any> ? S : never;
+
+/**
+ * Extract events type from Actor class
+ */
+export type EventsOf<T> = T extends Actor<any, infer E> ? E : never;
+
+/**
+ * StateShape enforces that all state keys (including optional ones) are present.
+ * This ensures event listeners are created for all state properties.
+ *
+ * Example:
+ *   interface MyState { count: number; name?: string }
+ *   StateShape<MyState> = { count: number; name: string | undefined }
+ */
+export type StateShape<T> = {
+  [K in keyof T]-?: T[K] | undefined;
+};
+
+/**
+ * Type for Actor class constructors.
+ * Used to properly type actor registries and ensure initialState is present.
+ */
+export interface ActorConstructor<T extends Actor = Actor> {
+  new (...args: any[]): T;
+  readonly initialState: StateShape<StateOf<T>>;
+}
+
 export abstract class Actor<
-  TState extends UnknownObject = {},
-  TEvents extends EventMap = {}
+  TState = {},
+  TEvents = {}
 > {
   public bus!: IActorBus<AllEvents<TState, TEvents>>;
   private _state: TState;
@@ -32,8 +61,15 @@ export abstract class Actor<
   private currentContext?: 'action' | 'effect';
   private currentMethod?: string;
 
-  constructor(initialState: TState) {
-    this._state = initialState;
+  /**
+   * Constructor requires StateShape to enforce all state keys are present.
+   * Concrete actors should define `static readonly initialState` and pass it to super().
+   * TypeScript will enforce all keys (including optional ones) are explicitly provided.
+   */
+  constructor(initialState: StateShape<TState>) {
+    // Deep copy initialState to ensure each instance has its own state object
+    // This prevents state from being shared across multiple actor instances
+    this._state = structuredClone(initialState) as TState;
   }
 
   // Framework injection (called after construction)
@@ -48,10 +84,13 @@ export abstract class Actor<
 
     for (const { methodName } of actionMetadata) {
       if (typeof actor[methodName] === 'function') {
-        this.bus.on(methodName, (args: unknown[]) => {
+        // Action methods must be declared in TEvents interface with their parameter tuple types
+        // At runtime, action invocations always pass argument arrays, but TypeScript can't
+        // verify this statically since TEvents may mix arrays and objects
+        this.bus.on(methodName as keyof TEvents, ((args: unknown[]) => {
           // Invoke the action method with the args array
           (actor[methodName] as (...args: unknown[]) => unknown)(...(args || []));
-        });
+        }) as any);
       }
     }
 
@@ -59,11 +98,6 @@ export abstract class Actor<
     this.bus.on(PROTOCOL_EVENTS.STATE_REQUEST as any, () => {
       this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
     });
-  }
-
-  // Public state access (read-only)
-  get state(): TState {
-    return this._state;
   }
 
   // State transition with Immer draft syntax

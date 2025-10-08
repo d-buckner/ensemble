@@ -5,8 +5,10 @@ export interface CounterState extends Record<string, unknown> {
 }
 
 export class CounterActor extends Actor<CounterState> {
+  static readonly initialState: CounterState = { count: 0 };
+
   constructor() {
-    super({ count: 0 });
+    super(CounterActor.initialState);
   }
 
   @action

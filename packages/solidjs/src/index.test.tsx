@@ -14,17 +14,22 @@ interface CounterEvents extends Record<string, unknown> {
 }
 
 class CounterActor extends Actor<CounterState, CounterEvents> {
+  static readonly initialState: CounterState = { count: 0, label: 'test' };
+
   constructor() {
-    super({ count: 0, label: 'test' });
+    super(CounterActor.initialState);
   }
 
   @action
   increment(): void {
-    const oldValue = this.state.count;
+    let oldValue: number;
+    let newValue: number;
     this.setState(draft => {
+      oldValue = draft.count;
       draft.count++;
+      newValue = draft.count;
     });
-    this.emit('incremented', { oldValue, newValue: this.state.count });
+    this.emit('incremented', { oldValue: oldValue!, newValue: newValue! });
   }
 
   @action
@@ -43,8 +48,7 @@ describe('@ensemble/solidjs', () => {
     system = new ActorSystem();
     system.register({
       token: CounterToken,
-      actor: CounterActor,
-      options: {},
+      actor: CounterActor
     });
   });
 

@@ -29,7 +29,8 @@ function isCacheStale(cached: CachedBundle): boolean {
 async function rebuildAndCache(
   virtualModuleId: string,
   threadId: string,
-  actors: ActorInfo[],
+  threadActors: ActorInfo[],
+  allActors: Map<string, ActorInfo>,
   projectRoot: string,
   bundleCache: Map<string, CachedBundle>,
   viteServer?: ViteDevServer
@@ -38,7 +39,7 @@ async function rebuildAndCache(
     virtualModuleId,
     (id) => {
       if (id === virtualModuleId) {
-        return generateWorkerEntry(threadId, actors);
+        return generateWorkerEntry(threadId, threadActors, allActors);
       }
     },
     projectRoot
@@ -74,6 +75,7 @@ async function rebuildAndCache(
  * Creates a middleware to serve virtual worker bundles in development mode
  * @param workerOutput The output directory for the worker (e.g., 'workers')
  * @param actorsByThread Map of threadId to ActorInfo[]
+ * @param allActors Map of className to ActorInfo for all actors
  * @param projectRoot The project root directory
  * @param viteServer Optional Vite dev server for HMR integration
  * @returns Connect middleware function
@@ -81,6 +83,7 @@ async function rebuildAndCache(
 export function createWorkerMiddleware(
   workerOutput: string,
   actorsByThread: Map<string, ActorInfo[]>,
+  allActors: Map<string, ActorInfo>,
   projectRoot: string,
   viteServer?: ViteDevServer
 ): Connect.NextHandleFunction {
@@ -114,7 +117,7 @@ export function createWorkerMiddleware(
       const shouldRebuild = !cached || isCacheStale(cached);
 
       const bundleResult = shouldRebuild
-        ? await rebuildAndCache(virtualModuleId, threadId, actors, projectRoot, bundleCache, viteServer)
+        ? await rebuildAndCache(virtualModuleId, threadId, actors, allActors, projectRoot, bundleCache, viteServer)
         : cached.result;
 
       res.setHeader('Content-Type', 'application/javascript');

@@ -58,12 +58,14 @@ export class TestActor extends Actor {
             className: 'TestActor',
             filePath: relative(projectRoot, join(srcDir, 'TestActor.ts')),
             threadId: 'worker-1',
+            initialState: {},
           },
         ],
       ],
     ]);
 
-    const middleware = createWorkerMiddleware('workers', actorsByThread, projectRoot);
+    const allActors = new Map([['TestActor', actorsByThread.get('worker-1')![0]]]);
+    const middleware = createWorkerMiddleware('workers', actorsByThread, allActors, projectRoot);
 
     const req = {
       url: '/workers/worker-1.js',
@@ -88,7 +90,8 @@ export class TestActor extends Actor {
 
   it('should call next for non-worker paths', async () => {
     const actorsByThread = new Map<string, ActorInfo[]>();
-    const middleware = createWorkerMiddleware('workers', actorsByThread, projectRoot);
+    const allActors = new Map<string, ActorInfo>();
+    const middleware = createWorkerMiddleware('workers', actorsByThread, allActors, projectRoot);
 
     const req = {
       url: '/some/other/path',
@@ -104,7 +107,8 @@ export class TestActor extends Actor {
 
   it('should return 404 for non-existent thread', async () => {
     const actorsByThread = new Map<string, ActorInfo[]>();
-    const middleware = createWorkerMiddleware('workers', actorsByThread, projectRoot);
+    const allActors = new Map<string, ActorInfo>();
+    const middleware = createWorkerMiddleware('workers', actorsByThread, allActors, projectRoot);
 
     const req = {
       url: '/workers/non-existent-thread.js',
@@ -133,6 +137,7 @@ export class TestActor extends Actor {
             className: 'ComputeActor',
             filePath: relative(projectRoot, join(srcDir, 'ComputeActor.ts')),
             threadId: 'compute',
+            initialState: {},
           },
         ],
       ],
@@ -149,7 +154,8 @@ export class ComputeActor extends Actor {
 `
     );
 
-    const middleware = createWorkerMiddleware('custom-dir', actorsByThread, projectRoot);
+    const allActors = new Map([['ComputeActor', actorsByThread.get('compute')![0]]]);
+    const middleware = createWorkerMiddleware('custom-dir', actorsByThread, allActors, projectRoot);
 
     const req = {
       url: '/custom-dir/compute.js',
@@ -201,6 +207,7 @@ export class Worker2Actor extends Actor {
             className: 'Worker1Actor',
             filePath: relative(projectRoot, join(srcDir, 'Worker1Actor.ts')),
             threadId: 'worker-1',
+            initialState: {},
           },
         ],
       ],
@@ -211,12 +218,17 @@ export class Worker2Actor extends Actor {
             className: 'Worker2Actor',
             filePath: relative(projectRoot, join(srcDir, 'Worker2Actor.ts')),
             threadId: 'worker-2',
+            initialState: {},
           },
         ],
       ],
     ]);
 
-    const middleware = createWorkerMiddleware('workers', actorsByThread, projectRoot);
+    const allActors = new Map([
+      ['Worker1Actor', actorsByThread.get('worker-1')![0]],
+      ['Worker2Actor', actorsByThread.get('worker-2')![0]],
+    ]);
+    const middleware = createWorkerMiddleware('workers', actorsByThread, allActors, projectRoot);
 
     // Request worker-1
     const req1 = { url: '/workers/worker-1.js' } as IncomingMessage;
@@ -228,8 +240,9 @@ export class Worker2Actor extends Actor {
     await middleware(req1, res1, vi.fn());
 
     const worker1Code = (res1.end as any).mock.calls[0][0];
-    expect(worker1Code).toContain('Worker1Actor');
-    expect(worker1Code).not.toContain('Worker2Actor');
+    expect(worker1Code).toContain("import { Worker1Actor }");
+    expect(worker1Code).toContain("'Worker1Actor': Worker1Actor");
+    expect(worker1Code).not.toContain("import { Worker2Actor }");
 
     // Request worker-2
     const req2 = { url: '/workers/worker-2.js' } as IncomingMessage;
@@ -241,7 +254,8 @@ export class Worker2Actor extends Actor {
     await middleware(req2, res2, vi.fn());
 
     const worker2Code = (res2.end as any).mock.calls[0][0];
-    expect(worker2Code).toContain('Worker2Actor');
-    expect(worker2Code).not.toContain('Worker1Actor');
+    expect(worker2Code).toContain("import { Worker2Actor }");
+    expect(worker2Code).toContain("'Worker2Actor': Worker2Actor");
+    expect(worker2Code).not.toContain("import { Worker1Actor }");
   });
 });

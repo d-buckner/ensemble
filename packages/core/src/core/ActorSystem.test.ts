@@ -36,14 +36,18 @@ interface MockState extends Record<string, unknown> {
 }
 
 class MockActor extends Actor<MockState> {
+  static readonly initialState: MockState = { value: 0 };
+
   constructor() {
-    super({ value: 0 });
+    super(MockActor.initialState);
   }
 }
 
 class DependentActor extends Actor<MockState> {
+  static readonly initialState: MockState = { value: 0 };
+
   constructor() {
-    super({ value: 0 });
+    super(DependentActor.initialState);
   }
 }
 
@@ -73,7 +77,6 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        options: {},
       });
 
       await system.start();
@@ -88,14 +91,12 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        options: {},
       });
 
       // Register dependent actor
       system.register({
         token: dependentToken,
         actor: DependentActor,
-        options: {},
         dependencies: {
           mockActor: mockToken,
         },
@@ -112,14 +113,12 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        options: {},
       });
 
       expect(() =>
         system.register({
           token: mockToken,
           actor: MockActor,
-          options: {},
         })
       ).toThrow('Cannot register actor that is already registered: mock');
     });
@@ -129,7 +128,6 @@ describe('ActorSystem', () => {
         system.register({
           token: dependentToken,
           actor: DependentActor,
-          options: {},
           dependencies: {
             mockActor: mockToken,
           },
@@ -143,7 +141,6 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        options: {},
       });
 
       await system.start();
@@ -167,13 +164,11 @@ describe('ActorSystem', () => {
       system.register({
         token: mockToken,
         actor: MockActor,
-        options: {},
       });
 
       system.register({
         token: dependentToken,
         actor: DependentActor,
-        options: {},
       });
 
       await system.start();
@@ -191,7 +186,6 @@ describe('ActorSystem', () => {
       system.register({
         token: workerToken,
         actor: MockActor,
-        options: {},
       });
 
       await system.start();

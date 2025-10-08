@@ -7,8 +7,13 @@ const actorRegistry = {
   // %ACTOR_REGISTRY%
 };
 
+// Metadata for ALL actors in system (enables dependency injection)
+const actorMetadata = {
+  // %ACTOR_METADATA%
+};
+
 const workerBus = new WorkerBus();
-const workerRuntime = new WorkerRuntime(workerBus, actorRegistry);
+const workerRuntime = new WorkerRuntime(workerBus, actorRegistry, actorMetadata);
 
 self.addEventListener('message', (event) => {
   try {

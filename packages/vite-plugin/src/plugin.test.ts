@@ -194,11 +194,17 @@ export class Worker2Actor extends Actor {
         '\0virtual:ensemble-worker-worker-2'
       );
 
-      expect(worker1Code).toContain('Worker1Actor');
-      expect(worker1Code).not.toContain('Worker2Actor');
+      // Worker 1 should import Worker1Actor but not Worker2Actor
+      expect(worker1Code).toContain("import { Worker1Actor }");
+      expect(worker1Code).toContain("'Worker1Actor': Worker1Actor");
+      expect(worker1Code).not.toContain("import { Worker2Actor }");
+      expect(worker1Code).not.toContain("'Worker2Actor': Worker2Actor,");
 
-      expect(worker2Code).toContain('Worker2Actor');
-      expect(worker2Code).not.toContain('Worker1Actor');
+      // Worker 2 should import Worker2Actor but not Worker1Actor
+      expect(worker2Code).toContain("import { Worker2Actor }");
+      expect(worker2Code).toContain("'Worker2Actor': Worker2Actor");
+      expect(worker2Code).not.toContain("import { Worker1Actor }");
+      expect(worker2Code).not.toContain("'Worker1Actor': Worker1Actor,");
     });
   });
 

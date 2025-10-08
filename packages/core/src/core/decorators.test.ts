@@ -29,8 +29,10 @@ describe('Decorators', () => {
 
     it('should preserve method functionality', () => {
       class TestActor extends Actor<{ count: number }> {
+        static readonly initialState = { count: 0 };
+
         constructor() {
-          super({ count: 0 });
+          super(TestActor.initialState);
         }
 
         @action
@@ -41,8 +43,7 @@ describe('Decorators', () => {
         }
       }
 
-      const actor = new TestActor();
-      expect(actor.state.count).toBe(0);
+      expect(TestActor.initialState.count).toBe(0);
     });
 
     it('should handle actors with no actions', () => {
@@ -131,10 +132,12 @@ describe('Decorators', () => {
 
     it('should preserve method functionality', () => {
       class TestActor extends Actor<{ derived: number }> {
+        static readonly initialState = { derived: 0 };
+
         protected deps!: { someActor: { state: { count: number } } };
 
         constructor() {
-          super({ derived: 0 });
+          super(TestActor.initialState);
         }
 
         @effect('someActor.count')
@@ -146,8 +149,7 @@ describe('Decorators', () => {
         }
       }
 
-      const actor = new TestActor();
-      expect(actor.state.derived).toBe(0);
+      expect(TestActor.initialState.derived).toBe(0);
     });
   });
 

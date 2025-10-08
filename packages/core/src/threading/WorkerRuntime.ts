@@ -1,14 +1,18 @@
-import type { Actor, ActorMetadata } from '../core/Actor';
+import type { Actor, ActorMetadata, ActorConstructor } from '../core/Actor';
 import type WorkerBus from '../messaging/WorkerBus';
 import { ActorBus } from '../messaging/ActorBus';
+import { ActorClient } from '../core/ActorClient';
 import type { AllEvents } from '../messaging/types';
 
 export interface InstantiateCommand {
-  type: 'instantiate',
+  type: 'instantiate';
   actorId: string;
   className: string;
-  options: any;
   metadata: ActorMetadata;
+  dependencies: Record<string, {
+    actorId: string;
+    className: string;
+  }>;
 }
 
 /**
@@ -17,21 +21,25 @@ export interface InstantiateCommand {
 export default class WorkerRuntime {
   private actors: Record<string, Actor> = {};
   private workerBus: WorkerBus;
-  private actorRegistry: Record<string, new (...args: any[]) => Actor>;
+  private actorRegistry: Record<string, ActorConstructor>;
+  private actorMetadata: Record<string, Record<string, unknown>>;
+  private clients: Map<string, ActorClient<any>> = new Map();
 
   constructor(
     workerBus: WorkerBus,
-    actorRegistry: Record<string, new (...args: any[]) => Actor>
+    actorRegistry: Record<string, ActorConstructor>,
+    actorMetadata: Record<string, Record<string, unknown>>
   ) {
     this.workerBus = workerBus;
     this.actorRegistry = actorRegistry;
+    this.actorMetadata = actorMetadata;
   }
 
   /**
    * Instantiate an actor in the worker
    */
   async instantiate(command: InstantiateCommand): Promise<void> {
-    const { actorId, className, options, metadata } = command;
+    const { actorId, className, metadata, dependencies } = command;
 
     // Check if already instantiated
     if (this.actors[actorId]) {
@@ -45,7 +53,7 @@ export default class WorkerRuntime {
     }
 
     // Create actor instance
-    const actorInstance = new ActorClass(options);
+    const actorInstance = new ActorClass();
 
     // Create actor bus
     const actorBus = new ActorBus<AllEvents<any, any>>(this.workerBus as any, actorId);
@@ -53,11 +61,42 @@ export default class WorkerRuntime {
     // Initialize actor
     actorInstance.__init(actorBus, metadata);
 
+    // Build dependencies map
+    const deps: Record<string, ActorClient<any>> = {};
+    for (const [depName, depInfo] of Object.entries(dependencies)) {
+      // Check if we already have a client for this dependency
+      let depClient = this.clients.get(depInfo.actorId);
+
+      if (!depClient) {
+        // Create ActorClient for dependency using metadata
+        const depInitialState = this.actorMetadata[depInfo.className];
+        if (!depInitialState) {
+          throw new Error(`No metadata found for dependency: ${depInfo.className}`);
+        }
+
+        const depBus = new ActorBus<AllEvents<any, any>>(
+          this.workerBus as any,
+          depInfo.actorId
+        );
+
+        depClient = new ActorClient(depBus, depInitialState);
+        this.clients.set(depInfo.actorId, depClient);
+      }
+
+      deps[depName] = depClient;
+    }
+
+    // Inject dependencies
+    if (Object.keys(deps).length > 0) {
+      (actorInstance as unknown as { deps: Record<string, ActorClient<any>> }).deps = deps;
+    }
+
     // Store instance
     this.actors[actorId] = actorInstance;
 
     // Send initial state to main thread for ActorClient hydration
-    actorBus.emit('__state', actorInstance.state);
+    // Use static initialState to avoid accessing actor's private state
+    actorBus.emit('__state', ActorClass.initialState);
 
     // Call lifecycle hook (access protected method via type assertion)
     await actorInstance.onInit?.call(actorInstance);

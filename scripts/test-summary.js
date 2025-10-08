@@ -1,6 +1,28 @@
 #!/usr/bin/env node
 
 const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+// Ensure we're running from the monorepo root
+function findMonorepoRoot() {
+  let currentDir = __dirname;
+
+  // Walk up from the script directory to find turbo.json
+  while (currentDir !== path.parse(currentDir).root) {
+    const turboJsonPath = path.join(currentDir, 'turbo.json');
+    if (fs.existsSync(turboJsonPath)) {
+      return currentDir;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+
+  // Fallback: assume script is in <root>/scripts
+  return path.dirname(__dirname);
+}
+
+const monorepoRoot = findMonorepoRoot();
+process.chdir(monorepoRoot);
 
 // Track test results by package
 const packageResults = new Map();
@@ -11,6 +33,7 @@ const failureDetails = [];
 const turbo = spawn('npx', ['turbo', 'run', 'test'], {
   stdio: ['inherit', 'pipe', 'pipe'],
   shell: true,
+  cwd: monorepoRoot,
 });
 
 let buffer = '';

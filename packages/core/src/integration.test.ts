@@ -20,22 +20,25 @@ interface Todo {
   done: boolean;
 }
 
-interface TodoState extends Record<string, unknown> {
+interface TodoState {
   todos: Todo[];
   filter: string;
 }
 
-interface TodoEvents extends Record<string, unknown> {
-  todoAdded: { id: string; text: string };
-  todoToggled: { id: string };
+interface TodoEvents {
+  addTodo: [text: string];
+  toggleTodo: [id: string];
+  setFilter: [filter: string];
 }
 
 class TodoActor extends Actor<TodoState, TodoEvents> {
+  static readonly initialState: TodoState = {
+    todos: [],
+    filter: ''
+  };
+
   constructor() {
-    super({
-      todos: [],
-      filter: ''
-    });
+    super(TodoActor.initialState);
   }
 
   @action
@@ -44,7 +47,6 @@ class TodoActor extends Actor<TodoState, TodoEvents> {
     this.setState(draft => {
       draft.todos.push({ id, text, done: false });
     });
-    this.emit('todoAdded', { id, text });
   }
 
   @action
@@ -55,7 +57,6 @@ class TodoActor extends Actor<TodoState, TodoEvents> {
         todo.done = !todo.done;
       }
     });
-    this.emit('todoToggled', { id });
   }
 
   @action
@@ -81,14 +82,16 @@ interface StatsDeps {
 }
 
 class StatsActor extends Actor<StatsState> {
+  static readonly initialState: StatsState = {
+    totalCount: 0,
+    completedCount: 0,
+    activeCount: 0
+  };
+
   protected deps!: StatsDeps;
 
   constructor() {
-    super({
-      totalCount: 0,
-      completedCount: 0,
-      activeCount: 0,
-    });
+    super(StatsActor.initialState);
   }
 
   @effect('todoActor.todos')
@@ -123,14 +126,12 @@ describe('E2E Integration Test', () => {
     system.register({
       token: TodoToken,
       actor: TodoActor,
-      options: {},
     });
 
     // Register StatsActor with dependency on TodoActor
     system.register({
       token: StatsToken,
       actor: StatsActor,
-      options: {},
       dependencies: {
         todoActor: TodoToken,
       },
@@ -163,12 +164,12 @@ describe('E2E Integration Test', () => {
     expect(todoClient.state.todos[0].done).toBe(false);
   });
 
-  it('should emit custom events when actions are called', async () => {
-    const events: any[] = [];
+  it('should emit state changes when actions are called', async () => {
+    const todoUpdates: any[] = [];
 
-    // Subscribe to custom event
-    todoClient.on('todoAdded', (payload) => {
-      events.push(payload);
+    // Subscribe to state property event
+    todoClient.on('todos', (todos) => {
+      todoUpdates.push(todos);
     });
 
     // Call action
@@ -177,9 +178,10 @@ describe('E2E Integration Test', () => {
     // Give time for async message passing
     await new Promise(resolve => setTimeout(resolve, 10));
 
-    // Verify event was emitted
-    expect(events).toHaveLength(1);
-    expect(events[0].text).toBe('Write tests');
+    // Verify state change was emitted
+    expect(todoUpdates.length).toBeGreaterThan(0);
+    const latestTodos = todoUpdates[todoUpdates.length - 1];
+    expect(latestTodos.some((t: any) => t.text === 'Write tests')).toBe(true);
   });
 
   it('should emit state property events when state changes', async () => {
@@ -265,11 +267,6 @@ describe('E2E Integration Test', () => {
 
     todoClient.on('filter', (filter) => {
       expect(typeof filter).toBe('string');
-    });
-
-    todoClient.on('todoAdded', (payload) => {
-      expect(payload).toHaveProperty('id');
-      expect(payload).toHaveProperty('text');
     });
 
     statsClient.on('totalCount', (count) => {

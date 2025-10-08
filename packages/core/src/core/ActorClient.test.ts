@@ -11,12 +11,19 @@ interface TestState extends Record<string, unknown> {
 }
 
 interface TestEvents extends Record<string, unknown> {
+  increment: null;
+  setName: [name: string];
   incremented: { oldValue: number; newValue: number };
 }
 
 class TestActor extends Actor<TestState, TestEvents> {
+  static readonly initialState: TestState = {
+    count: 0,
+    name: 'test'
+  };
+
   constructor() {
-    super({ count: 0, name: 'test' });
+    super(TestActor.initialState);
   }
 
   @action
@@ -44,7 +51,7 @@ describe('ActorClient', () => {
 
   beforeEach(() => {
     bus = new MockBus();
-    client = new ActorClient(bus, { count: 5, name: 'initial' }, TestActor);
+    client = new ActorClient(bus, { count: 5, name: 'initial' });
     // Simulate actor responding with its state
     bus.emit('__state', { count: 5, name: 'initial' });
   });
@@ -170,10 +177,6 @@ describe('ActorClient', () => {
       expect(typeof client.actions.setName).toBe('function');
     });
 
-    it('should not create proxies for non-decorated methods', () => {
-      expect((client.actions as Record<string, unknown>).regularMethod).toBeUndefined();
-    });
-
     it('should emit action event when action is called', () => {
       const actionCallback = vi.fn();
       bus.on('increment', actionCallback);
@@ -202,7 +205,7 @@ describe('ActorClient', () => {
         multiArg(_a: number, _b: string, _c: boolean): void {}
       }
 
-      const multiClient = new ActorClient(bus, {}, MultiArgActor);
+      const multiClient = new ActorClient<MultiArgActor>(bus, {});
       // Simulate state hydration
       bus.emit('__state', {});
 
