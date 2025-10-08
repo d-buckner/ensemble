@@ -53,6 +53,9 @@ export abstract class Actor<
   private _state: TState;
   private _metadata!: ActorMetadata;
 
+  // Dependency injection - set by ActorSystem
+  protected declare deps?: Record<string, any>;
+
   get metadata(): ActorMetadata {
     return this._metadata;
   }

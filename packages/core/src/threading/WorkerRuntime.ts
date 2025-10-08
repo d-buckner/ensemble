@@ -4,6 +4,7 @@ import { ActorBus } from '../messaging/ActorBus';
 import { ActorClient } from '../core/ActorClient';
 import type { AllEvents } from '../messaging/types';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
+import type { WithDeps } from '../core/ActorSystem';
 
 export interface InstantiateCommand {
   type: 'instantiate';
@@ -89,7 +90,7 @@ export default class WorkerRuntime {
 
     // Inject dependencies
     if (Object.keys(deps).length > 0) {
-      (actorInstance as unknown as { deps: Record<string, ActorClient<any>> }).deps = deps;
+      (actorInstance as any as WithDeps<typeof deps>).deps = deps;
     }
 
     // Store instance

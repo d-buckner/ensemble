@@ -63,7 +63,7 @@ describe('Decorators', () => {
   describe('@effect decorator', () => {
     it('should collect metadata with event subscriptions', () => {
       class TestActor extends Actor {
-        protected deps!: { someActor: unknown };
+        protected declare deps: { someActor: unknown };
 
         constructor() {
           super({});
@@ -134,7 +134,7 @@ describe('Decorators', () => {
       class TestActor extends Actor<{ derived: number }> {
         static readonly initialState = { derived: 0 };
 
-        protected deps!: { someActor: { state: { count: number } } };
+        protected declare deps: { someActor: { state: { count: number } } };
 
         constructor() {
           super(TestActor.initialState);

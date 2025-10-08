@@ -38,6 +38,11 @@ export interface ActorSystemOptions {
   workerOutput?: string;
 }
 
+// Type helper for dependency injection
+export type WithDeps<TDeps extends Record<string, ActorClient<any>>> = {
+  deps: TDeps;
+};
+
 export default class ActorSystem {
   private graph: Graph = {};
   private workerRegistry: WorkerRegistry;
@@ -292,8 +297,7 @@ export default class ActorSystem {
 
     // Inject dependencies
     if (Object.keys(deps).length > 0) {
-      // Type-safe dependency injection via index signature
-      (actorInstance as unknown as { deps: Record<string, ActorClient<any>> }).deps = deps;
+      (actorInstance as unknown as WithDeps<typeof deps>).deps = deps;
     }
 
     // Store instance

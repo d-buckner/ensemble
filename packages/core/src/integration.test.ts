@@ -88,7 +88,7 @@ class StatsActor extends Actor<StatsState> {
     activeCount: 0
   };
 
-  protected deps!: StatsDeps;
+  protected declare deps: StatsDeps;
 
   constructor() {
     super(StatsActor.initialState);
