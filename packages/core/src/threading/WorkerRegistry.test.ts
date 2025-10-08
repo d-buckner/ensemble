@@ -57,7 +57,7 @@ describe('WorkerRegistry', () => {
 
       const worker = registry.get('worker-1');
       expect(worker).toBeDefined();
-      expect((worker as unknown as MockWorker).url).toBe('/workers/worker-1.js');
+      expect((worker as unknown as MockWorker).url).toBe('./workers/worker-1.js');
     });
 
     it('should use custom workerOutput directory when provided', () => {
@@ -66,7 +66,7 @@ describe('WorkerRegistry', () => {
 
       const worker = customRegistry.get('worker-1');
       expect(worker).toBeDefined();
-      expect((worker as unknown as MockWorker).url).toBe('/custom-workers/worker-1.js');
+      expect((worker as unknown as MockWorker).url).toBe('./custom-workers/worker-1.js');
     });
 
     it('should throw when trying to register main thread', () => {
@@ -115,9 +115,9 @@ describe('WorkerRegistry', () => {
       const workerCompute = registry.get('compute') as unknown as MockWorker;
       const workerIo = registry.get('io-thread') as unknown as MockWorker;
 
-      expect(worker1.url).toBe('/workers/worker-1.js');
-      expect(workerCompute.url).toBe('/workers/compute.js');
-      expect(workerIo.url).toBe('/workers/io-thread.js');
+      expect(worker1.url).toBe('./workers/worker-1.js');
+      expect(workerCompute.url).toBe('./workers/compute.js');
+      expect(workerIo.url).toBe('./workers/io-thread.js');
     });
 
     it('should use custom workerOutput path for thread-specific bundles', () => {
@@ -128,8 +128,8 @@ describe('WorkerRegistry', () => {
       const worker1 = customRegistry.get('worker-1') as unknown as MockWorker;
       const workerDb = customRegistry.get('database') as unknown as MockWorker;
 
-      expect(worker1.url).toBe('/custom-workers/worker-1.js');
-      expect(workerDb.url).toBe('/custom-workers/database.js');
+      expect(worker1.url).toBe('./custom-workers/worker-1.js');
+      expect(workerDb.url).toBe('./custom-workers/database.js');
     });
   });
 
