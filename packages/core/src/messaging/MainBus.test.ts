@@ -49,8 +49,6 @@ describe('MainBus', () => {
   let actorSystem: MockActorSystem;
   let workerRegistry: MockWorkerRegistry;
   let mainBus: MainBus;
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     actorSystem = new MockActorSystem();
@@ -59,10 +57,6 @@ describe('MainBus', () => {
       actorSystem as unknown as ActorSystem,
       workerRegistry as unknown as WorkerRegistry
     );
-
-    // Spy on console methods
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Reset mocks
     vi.clearAllMocks();
@@ -76,7 +70,6 @@ describe('MainBus', () => {
 
       mainBus.emit('unknown-actor', 'testEvent', 'payload');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith('MainBus: Actor unknown-actor not found in ActorSystem');
       expect(pack).not.toHaveBeenCalled();
     });
 
@@ -118,7 +111,6 @@ describe('MainBus', () => {
 
       mainBus.emit('worker-actor', 'testEvent', 'payload');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('MainBus: Worker not found for threadId worker-1');
       expect(pack).not.toHaveBeenCalled(); // Should not attempt to pack if worker missing
     });
 
@@ -177,12 +169,10 @@ describe('MainBus', () => {
         throw new Error('Invalid msgpack data');
       });
 
-      mainBus.handleWorkerMessage(new Uint8Array([1, 2, 3]));
-
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'MainBus: Failed to handle worker message',
-        expect.any(Error)
-      );
+      // Should not throw when handling invalid data
+      expect(() => {
+        mainBus.handleWorkerMessage(new Uint8Array([1, 2, 3]));
+      }).not.toThrow();
     });
 
     it('should route messages from multiple workers', () => {

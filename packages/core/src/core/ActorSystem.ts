@@ -13,6 +13,7 @@ import type { AllEvents } from '../messaging/types';
 import type { ActorToken } from './ActorToken';
 import { pack } from 'msgpackr';
 import type { InstantiateCommand } from '../threading/WorkerRuntime';
+import { Logger } from '../utils/Logger';
 
 
 // Registration interface for actor instances
@@ -87,9 +88,72 @@ export default class ActorSystem {
   }
 
   /**
+   * Validate that the actor dependency graph has no cycles
+   * @throws Error if a cycle is detected
+   */
+  private validateAcyclic(): void {
+    const visited = new Map<string, 'unvisited' | 'visiting' | 'visited'>();
+
+    // Initialize all nodes as unvisited
+    for (const actorId of Object.keys(this.graph)) {
+      visited.set(actorId, 'unvisited');
+    }
+
+    // DFS from each unvisited node
+    for (const actorId of Object.keys(this.graph)) {
+      if (visited.get(actorId) === 'unvisited') {
+        this.dfsCheckCycle(actorId, visited, []);
+      }
+    }
+  }
+
+  /**
+   * DFS helper for cycle detection
+   */
+  private dfsCheckCycle(
+    actorId: string,
+    visited: Map<string, 'unvisited' | 'visiting' | 'visited'>,
+    path: string[]
+  ): void {
+    visited.set(actorId, 'visiting');
+    path.push(actorId);
+
+    const node = this.graph[actorId];
+    if (!node) {
+      return;
+    }
+
+    // Check all dependencies
+    const dependencies = node.dependencies || {};
+    for (const depToken of Object.values(dependencies)) {
+      const depId = depToken.id;
+      const depState = visited.get(depId);
+
+      if (depState === 'visiting') {
+        // Found a cycle - build error message with cycle path
+        const cycleStart = path.indexOf(depId);
+        const cycle = [...path.slice(cycleStart), depId];
+        throw new Error(
+          `Cycle detected in actor dependencies: ${cycle.join(' -> ')}`
+        );
+      }
+
+      if (depState === 'unvisited') {
+        this.dfsCheckCycle(depId, visited, path);
+      }
+    }
+
+    visited.set(actorId, 'visited');
+    path.pop();
+  }
+
+  /**
    * Start the actor system - instantiate all registered actors
    */
   async start(): Promise<void> {
+    // Validate no cycles in dependency graph
+    this.validateAcyclic();
+
     // Create main bus
     this.mainBus = new MainBus(this, this.workerRegistry);
 
@@ -105,6 +169,33 @@ export default class ActorSystem {
     for (const actorId of actorIds) {
       await this.instantiateActor(actorId);
     }
+  }
+
+  /**
+   * Shutdown the actor system - cleanup all resources
+   */
+  async shutdown(): Promise<void> {
+    // Call onDestroy lifecycle hooks
+    for (const instance of this.instances.values()) {
+      if (instance.onDestroy) {
+        await instance.onDestroy();
+      }
+    }
+
+    // Dispose all clients
+    for (const client of this.clients.values()) {
+      client.dispose();
+    }
+
+    // Clear collections
+    this.instances.clear();
+    this.clients.clear();
+
+    // Terminate workers
+    this.workerRegistry.terminateAll();
+
+    // Clear main bus
+    this.mainBus = undefined;
   }
 
   /**
@@ -236,7 +327,7 @@ export default class ActorSystem {
         const depClient = deps[actorClientKey];
 
         if (!depClient) {
-          console.error(
+          Logger.error(
             `Effect "${methodName}" references dependency "${actorClientKey}" which was not found in deps`
           );
           continue;

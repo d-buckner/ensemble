@@ -45,6 +45,7 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
   private bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>;
   private listeners: Map<string, Set<TypedListener<any>>> = new Map();
   public readonly actions: ActionsOf<TActor>;
+  private stateHydrationCallback?: TypedListener<StateOf<TActor>>;
 
   constructor(
     bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>,
@@ -99,13 +100,19 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
    * Dispose of this client and cleanup all event listeners
    */
   dispose(): void {
-    // Unsubscribe all listeners
+    // Unsubscribe all user listeners
     for (const [eventName, callbacks] of this.listeners.entries()) {
       for (const callback of callbacks) {
         this.bus.off(eventName as any, callback);
       }
     }
     this.listeners.clear();
+
+    // Unsubscribe protocol event listeners
+    if (this.stateHydrationCallback) {
+      this.bus.off(PROTOCOL_EVENTS.STATE as any, this.stateHydrationCallback);
+      this.stateHydrationCallback = undefined;
+    }
   }
 
   /**
@@ -130,9 +137,10 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
    */
   private requestStateHydration(): void {
     // Subscribe to __state responses
-    this.bus.on(PROTOCOL_EVENTS.STATE as any, (state: StateOf<TActor>) => {
+    this.stateHydrationCallback = (state: StateOf<TActor>) => {
       this.hydrateState(state);
-    });
+    };
+    this.bus.on(PROTOCOL_EVENTS.STATE as any, this.stateHydrationCallback);
 
     // Request state from actor
     this.bus.emit(PROTOCOL_EVENTS.STATE_REQUEST as any, undefined);

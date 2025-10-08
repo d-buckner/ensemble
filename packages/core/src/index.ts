@@ -11,6 +11,9 @@ export type { ActorToken } from './core/ActorToken';
 export { MAIN_THREAD_ID } from './constants';
 export { PROTOCOL_EVENTS } from './messaging/protocol-events';
 
+// Utilities
+export { Logger, LogLevel } from './utils/Logger';
+
 // Worker infrastructure (for generated worker bundles)
 export { default as WorkerBus } from './messaging/WorkerBus';
 export { default as WorkerRuntime } from './threading/WorkerRuntime';

@@ -4,6 +4,7 @@ import type { WorkerRegistry } from '../threading/WorkerRegistry';
 import type ActorSystem from '../core/ActorSystem';
 import { MAIN_THREAD_ID } from '../constants';
 import { PROTOCOL_EVENTS } from './protocol-events';
+import { Logger } from '../utils/Logger';
 
 /**
  * MainBus runs on the main thread and routes messages between:
@@ -29,7 +30,7 @@ export class MainBus extends ThreadBus {
     const actor = this.actorSystem.get(actorId);
 
     if (!actor) {
-      console.warn(`MainBus: Actor ${actorId} not found in ActorSystem`);
+      Logger.warn(`MainBus: Actor ${actorId} not found in ActorSystem`);
       return;
     }
 
@@ -43,7 +44,7 @@ export class MainBus extends ThreadBus {
     // Send to worker thread
     const worker = this.workerRegistry.get(threadId);
     if (!worker) {
-      console.error(`MainBus: Worker not found for threadId ${threadId}`);
+      Logger.error(`MainBus: Worker not found for threadId ${threadId}`);
       return;
     }
 
@@ -69,11 +70,11 @@ export class MainBus extends ThreadBus {
           return;
         }
 
-        console.warn(`MainBus: No client found for actor ${actorId} to hydrate state`);
+        Logger.warn(`MainBus: No client found for actor ${actorId} to hydrate state`);
         return;
       }
 
-      console.log(`[MainBus] Received event from worker: actorId=${actorId}, eventName=${eventName}`);
+      Logger.debug(`[MainBus] Received event from worker: actorId=${actorId}, eventName=${eventName}`);
 
       // Notify local listeners on main thread
       this.receive(actorId, eventName, payload);
@@ -81,24 +82,24 @@ export class MainBus extends ThreadBus {
       // Forward to dependent actors on other workers
       const actor = this.actorSystem.get(actorId);
       if (actor && actor.dependents) {
-        console.log(`[MainBus] Actor ${actorId} has ${actor.dependents.length} dependents:`, actor.dependents.map(d => `${d.id}@${this.actorSystem.get(d.id)?.threadId}`));
+        Logger.debug(`[MainBus] Actor ${actorId} has ${actor.dependents.length} dependents:`, actor.dependents.map(d => `${d.id}@${this.actorSystem.get(d.id)?.threadId}`));
         for (const dependentToken of actor.dependents) {
           const dependent = this.actorSystem.get(dependentToken.id);
           if (dependent && dependent.threadId !== MAIN_THREAD_ID) {
-            console.log(`[MainBus] Forwarding event ${eventName} from ${actorId} to dependent ${dependentToken.id} on ${dependent.threadId}`);
+            Logger.debug(`[MainBus] Forwarding event ${eventName} from ${actorId} to dependent ${dependentToken.id} on ${dependent.threadId}`);
             const worker = this.workerRegistry.get(dependent.threadId);
             if (worker) {
               worker.postMessage(pack({ actorId, eventName, payload }));
             } else {
-              console.error(`[MainBus] No worker found for threadId ${dependent.threadId}`);
+              Logger.error(`[MainBus] No worker found for threadId ${dependent.threadId}`);
             }
           }
         }
       } else {
-        console.log(`[MainBus] Actor ${actorId} has no dependents or not found in ActorSystem`);
+        Logger.debug(`[MainBus] Actor ${actorId} has no dependents or not found in ActorSystem`);
       }
     } catch (error) {
-      console.error('MainBus: Failed to handle worker message', error);
+      Logger.error('MainBus: Failed to handle worker message', error);
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { unpack } from 'msgpackr';
 import WorkerBus from '../messaging/WorkerBus';
+import { Logger } from '../utils/Logger';
 
 /**
  * Worker thread entry point
@@ -15,7 +16,7 @@ self.addEventListener('message', (event) => {
     const { actorId, eventName, payload } = unpack(new Uint8Array(event.data));
     workerBus.emit(actorId, eventName, payload);
   } catch (error) {
-    console.error('Worker: Failed to handle message from main thread', error);
+    Logger.error('Worker: Failed to handle message from main thread', error);
   }
 });
 

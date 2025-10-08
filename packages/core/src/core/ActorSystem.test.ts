@@ -194,5 +194,195 @@ describe('ActorSystem', () => {
       const client = system.getClient(workerToken);
       expect(client).not.toBeNull();
     });
+
+    it('should throw when starting with a simple two-node cycle', async () => {
+      const actorAToken = createActorToken<MockActor>('actor-a');
+      const actorBToken = createActorToken<DependentActor>('actor-b');
+
+      // Create cycle: A -> B, B -> A
+      // First register A (no dependencies yet)
+      system.register({
+        token: actorAToken,
+        actor: MockActor,
+      });
+
+      // Register B depending on A
+      system.register({
+        token: actorBToken,
+        actor: DependentActor,
+        dependencies: { actorA: actorAToken },
+      });
+
+      // Manually create cycle by modifying graph (since registration prevents it)
+      const nodeA = system.get(actorAToken.id);
+      if (nodeA) {
+        nodeA.dependencies = { actorB: actorBToken };
+      }
+
+      await expect(system.start()).rejects.toThrow(/Cycle detected in actor dependencies/);
+    });
+
+    it('should throw when starting with a three-node cycle', async () => {
+      const actorAToken = createActorToken<MockActor>('actor-a');
+      const actorBToken = createActorToken<DependentActor>('actor-b');
+      const actorCToken = createActorToken<MockActor>('actor-c');
+
+      // Register all actors
+      system.register({
+        token: actorAToken,
+        actor: MockActor,
+      });
+
+      system.register({
+        token: actorBToken,
+        actor: DependentActor,
+      });
+
+      system.register({
+        token: actorCToken,
+        actor: MockActor,
+      });
+
+      // Manually create cycle: A -> B -> C -> A
+      const nodeA = system.get(actorAToken.id);
+      const nodeB = system.get(actorBToken.id);
+      const nodeC = system.get(actorCToken.id);
+
+      if (nodeA && nodeB && nodeC) {
+        nodeA.dependencies = { actorB: actorBToken };
+        nodeB.dependencies = { actorC: actorCToken };
+        nodeC.dependencies = { actorA: actorAToken };
+      }
+
+      await expect(system.start()).rejects.toThrow(/Cycle detected in actor dependencies/);
+    });
+
+    it('should throw with helpful cycle path in error message', async () => {
+      const actorAToken = createActorToken<MockActor>('actor-a');
+      const actorBToken = createActorToken<DependentActor>('actor-b');
+
+      system.register({
+        token: actorAToken,
+        actor: MockActor,
+      });
+
+      system.register({
+        token: actorBToken,
+        actor: DependentActor,
+      });
+
+      // Create cycle: A -> B -> A
+      const nodeA = system.get(actorAToken.id);
+      const nodeB = system.get(actorBToken.id);
+
+      if (nodeA && nodeB) {
+        nodeA.dependencies = { actorB: actorBToken };
+        nodeB.dependencies = { actorA: actorAToken };
+      }
+
+      await expect(system.start()).rejects.toThrow(/actor-a -> actor-b -> actor-a/);
+    });
+
+    it('should not throw for valid acyclic dependency graph', async () => {
+      const actorAToken = createActorToken<MockActor>('actor-a');
+      const actorBToken = createActorToken<DependentActor>('actor-b');
+      const actorCToken = createActorToken<MockActor>('actor-c');
+
+      // Create valid DAG: C <- B <- A (A depends on B, B depends on C)
+      system.register({
+        token: actorCToken,
+        actor: MockActor,
+      });
+
+      system.register({
+        token: actorBToken,
+        actor: DependentActor,
+        dependencies: { actorC: actorCToken },
+      });
+
+      system.register({
+        token: actorAToken,
+        actor: MockActor,
+        dependencies: { actorB: actorBToken },
+      });
+
+      // Should not throw
+      await expect(system.start()).resolves.not.toThrow();
+    });
+  });
+
+  describe('shutdown', () => {
+    it('should dispose all clients and clear collections', async () => {
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+      });
+
+      system.register({
+        token: dependentToken,
+        actor: DependentActor,
+      });
+
+      await system.start();
+
+      const client1 = system.getClient(mockToken);
+      const client2 = system.getClient(dependentToken);
+
+      expect(client1).not.toBeNull();
+      expect(client2).not.toBeNull();
+
+      await system.shutdown();
+
+      // Clients should be cleared
+      expect(system.getClient(mockToken)).toBeNull();
+      expect(system.getClient(dependentToken)).toBeNull();
+    });
+
+    it('should call onDestroy lifecycle hooks', async () => {
+      const onDestroySpy = vi.fn();
+
+      class LifecycleActor extends Actor<MockState> {
+        static readonly initialState: MockState = { value: 0 };
+
+        constructor() {
+          super(LifecycleActor.initialState);
+        }
+
+        onDestroy(): void {
+          onDestroySpy();
+        }
+      }
+
+      const lifecycleToken = createActorToken<LifecycleActor>('lifecycle');
+
+      system.register({
+        token: lifecycleToken,
+        actor: LifecycleActor,
+      });
+
+      await system.start();
+      await system.shutdown();
+
+      expect(onDestroySpy).toHaveBeenCalledOnce();
+    });
+
+    it('should support multiple start/shutdown cycles', async () => {
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+      });
+
+      // First cycle
+      await system.start();
+      expect(system.getClient(mockToken)).not.toBeNull();
+      await system.shutdown();
+      expect(system.getClient(mockToken)).toBeNull();
+
+      // Second cycle
+      await system.start();
+      expect(system.getClient(mockToken)).not.toBeNull();
+      await system.shutdown();
+      expect(system.getClient(mockToken)).toBeNull();
+    });
   });
 });

@@ -56,4 +56,11 @@ export class WorkerRegistry {
   has(threadId: string): boolean {
     return Boolean(this.registry[threadId]);
   }
+
+  terminateAll(): void {
+    for (const worker of Object.values(this.registry)) {
+      worker.terminate();
+    }
+    this.registry = {};
+  }
 }
