@@ -194,7 +194,6 @@ export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGene
         batchEndTime
       };
 
-      console.log('[MetricGeneratorActor] Emitting metricBatch event with', batch.length, 'metrics');
       this.emit('metricBatch', metricBatch);
 
       this.setState(draft => {

@@ -63,8 +63,6 @@ export class DashboardActor extends Actor<DashboardState> {
 
   @effect('StatisticsActor.processedBatch')
   handleProcessedBatch(batch: ProcessedBatch): void {
-    console.log('[DashboardActor] handleProcessedBatch called with:', batch ? `${batch.metrics.length} metrics` : 'null');
-
     // Sample metrics to reduce chart density
     // Take every Nth metric plus the last one (most recent)
     const metricsToAdd = batch.metrics.filter((_, i) =>

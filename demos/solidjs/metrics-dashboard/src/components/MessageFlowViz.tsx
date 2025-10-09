@@ -76,8 +76,6 @@ export function MessageFlowViz() {
     const nodes: ActorNode[] = [];
     const graphEdges: Edge[] = [];
 
-    console.log('[MessageFlowViz] Building graph from system, actors:', actorIds);
-
     actorIds.forEach((actorId: string) => {
       const node = system.get(actorId);
       if (!node) return;
@@ -106,9 +104,6 @@ export function MessageFlowViz() {
 
     actorNodes = nodes;
     edges = graphEdges;
-
-    console.log('[MessageFlowViz] Built graph with nodes:', actorNodes);
-    console.log('[MessageFlowViz] Built graph with edges:', edges);
   };
 
   const getNodePosition = (actorId: string): NodePosition | null => {
@@ -120,8 +115,6 @@ export function MessageFlowViz() {
     if (!graphContainer) return;
 
     const container = graphContainer;
-
-    console.log('[MessageFlowViz] Drawing graph with', actorNodes.length, 'nodes and', edges.length, 'edges');
 
     // Draw edges
     edges.forEach(edge => {
@@ -192,18 +185,16 @@ export function MessageFlowViz() {
   const createParticle = (event: MessageWithTargets): void => {
     if (!particleContainer) return;
 
-    const { actorId, eventName, targets, eventType } = event;
+    const { actorId, targets, eventType } = event;
     const sourcePos = getNodePosition(actorId);
 
     if (!sourcePos) {
-      console.log('[MessageFlowViz] No position found for actor:', actorId);
       return;
     }
 
     const color = EVENT_TYPE_COLORS[eventType];
 
     if (targets.length === 0) {
-      console.log('[MessageFlowViz] No targets found for actor:', actorId, 'event:', eventName);
       // For actors with no downstream dependencies, create a visual pulse at the node
       const graphics = new Graphics();
 
@@ -231,8 +222,6 @@ export function MessageFlowViz() {
       });
       return;
     }
-
-    console.log('[MessageFlowViz] Creating particle from', actorId, 'to', targets, 'for event:', eventName);
 
     // Create a particle for each target
     targets.forEach(targetId => {
@@ -362,15 +351,12 @@ export function MessageFlowViz() {
     drawGraph();
 
     // Set up message monitor
-    console.log('[MessageFlowViz] Setting up message monitor');
     system.setMessageMonitor((event: MessageWithTargets) => {
-      console.log('[MessageFlowViz] Message received:', event);
       createParticle(event);
     });
 
     // Start animation loop
     app.ticker.add(animate);
-    console.log('[MessageFlowViz] Initialization complete');
   });
 
   onCleanup(() => {

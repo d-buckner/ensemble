@@ -86,7 +86,6 @@ export class StatisticsActor extends Actor<StatisticsState, StatisticsEvents> {
 
   @effect('MetricGeneratorActor.metricBatch')
   processMetricBatch(batch: MetricBatch): void {
-    console.log('[StatisticsActor] processMetricBatch called with:', batch ? `${batch.metrics.length} metrics` : 'null');
     this.setState(draft => {
       draft.isProcessing = true;
     });
@@ -192,7 +191,6 @@ export class StatisticsActor extends Actor<StatisticsState, StatisticsEvents> {
       batchEndTime: batch.batchEndTime
     };
 
-    console.log('[StatisticsActor] Emitting processedBatch event with', processed.length, 'processed metrics');
     this.emit('processedBatch', processedBatch);
 
     // Update state
