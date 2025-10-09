@@ -68,6 +68,12 @@ export function App() {
     <div class="app">
       <h1 class="app-title">Ensemble Demo: Real-Time Metrics</h1>
 
+      <p class="app-description">
+        This demo showcases the Ensemble actor framework's multi-threaded message passing system.
+        Watch as metrics flow through actors running on different threads, with real-time visualization
+        of custom events (purple), reactive state updates (green), and internal system messages (orange).
+      </p>
+
       {/* Controls */}
       <div class="controls">
         <button
@@ -114,6 +120,12 @@ export function App() {
           <span>Batches: <span style={{'font-variant-numeric':'tabular-nums'}}>{generator.state.batchesGenerated()}</span></span>
           <span>Metrics: <span style={{'font-variant-numeric':'tabular-nums'}}>{generator.state.metricsGenerated()}</span></span>
         </div>
+      </div>
+
+      {/* Message Flow Visualization */}
+      <div class="message-flow-section">
+        <h3>Real-Time Message Flow</h3>
+        <MessageFlowViz />
       </div>
 
       {/* Charts */}
@@ -170,12 +182,6 @@ export function App() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Message Flow Visualization */}
-      <div class="message-flow-section">
-        <h3>Real-Time Message Flow</h3>
-        <MessageFlowViz />
       </div>
 
       {/* Current Metrics */}

@@ -13,7 +13,7 @@ export { PROTOCOL_EVENTS } from './messaging/protocol-events';
 
 // Message monitoring
 export type { MessageEvent, MessageMonitor } from './messaging/ThreadBus';
-export type { MessageWithTargets } from './messaging/MainBus';
+export type { MessageWithTargets, EventType } from './messaging/MainBus';
 
 // Utilities
 export { Logger, LogLevel } from './utils/Logger';

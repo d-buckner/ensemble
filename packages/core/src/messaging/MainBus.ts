@@ -7,11 +7,14 @@ import type ActorSystem from '../core/ActorSystem';
 import type { WorkerRegistry } from '../threading/WorkerRegistry';
 
 
+export type EventType = 'state' | 'custom' | 'system';
+
 export interface MessageWithTargets {
   actorId: string;
   eventName: string;
   timestamp: number;
   targets: string[];
+  eventType: EventType;
 }
 
 /**
@@ -39,6 +42,25 @@ export class MainBus extends ThreadBus {
     this.mainMessageMonitor = monitor;
   }
 
+  private determineEventType(actorId: string, eventName: string): EventType {
+    // System events start with __
+    if (eventName.startsWith('__')) {
+      return 'system';
+    }
+
+    // Check if eventName is a state property
+    const actor = this.actorSystem.get(actorId);
+    if (actor) {
+      const initialState = actor.actor.initialState;
+      if (initialState && eventName in initialState) {
+        return 'state';
+      }
+    }
+
+    // Everything else is a custom event
+    return 'custom';
+  }
+
   private notifyMonitor(actorId: string, eventName: string): void {
     if (!this.mainMessageMonitor) return;
 
@@ -46,11 +68,15 @@ export class MainBus extends ThreadBus {
     const actor = this.actorSystem.get(actorId);
     const targets = actor?.dependents.map(t => t.id) || [];
 
+    // Determine event type
+    const eventType = this.determineEventType(actorId, eventName);
+
     this.mainMessageMonitor({
       actorId,
       eventName,
       timestamp: Date.now(),
       targets,
+      eventType,
     });
   }
 

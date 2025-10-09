@@ -1,7 +1,7 @@
 import { createActorSystem } from '@d-buckner/ensemble-solidjs';
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { onMount, onCleanup } from 'solid-js';
-import type { MessageWithTargets } from '@d-buckner/ensemble-core';
+import type { MessageWithTargets, EventType } from '@d-buckner/ensemble-core';
 
 
 interface ParticleData {
@@ -15,7 +15,7 @@ interface ParticleData {
   controlY: number;
   progress: number;
   lifespan: number;
-  eventName: string;
+  eventType: EventType;
 }
 
 interface NodePosition {
@@ -44,19 +44,11 @@ const POSITION_LAYOUTS: Record<string, NodePosition> = {
   DashboardActor: { x: 550, y: 360 },
 };
 
-// Custom events (manually emitted)
-const CUSTOM_EVENTS = new Set([
-  'metricBatch',
-  'processedBatch',
-  'latestAnomaly'
-]);
-
 // Event type colors
-const EVENT_TYPE_COLORS = {
+const EVENT_TYPE_COLORS: Record<EventType, number> = {
   custom: 0x667eea,     // Purple - custom events (metricBatch, etc.)
   state: 0x4caf50,      // Green - state property events
   system: 0xff9800,     // Orange - system/protocol events (__hydrated, etc.)
-  default: 0x888888,    // Gray - unknown
 };
 
 const NODE_WIDTH = 170;
@@ -122,21 +114,6 @@ export function MessageFlowViz() {
   const getNodePosition = (actorId: string): NodePosition | null => {
     const node = actorNodes.find(n => n.id === actorId);
     return node ? node.position : null;
-  };
-
-  const getEventColor = (eventName: string): number => {
-    // System/protocol events (start with __)
-    if (eventName.startsWith('__')) {
-      return EVENT_TYPE_COLORS.system;
-    }
-
-    // Custom events (manually emitted)
-    if (CUSTOM_EVENTS.has(eventName)) {
-      return EVENT_TYPE_COLORS.custom;
-    }
-
-    // State property events (everything else)
-    return EVENT_TYPE_COLORS.state;
   };
 
   const drawGraph = (): void => {
@@ -215,7 +192,7 @@ export function MessageFlowViz() {
   const createParticle = (event: MessageWithTargets): void => {
     if (!particleContainer) return;
 
-    const { actorId, eventName, targets } = event;
+    const { actorId, eventName, targets, eventType } = event;
     const sourcePos = getNodePosition(actorId);
 
     if (!sourcePos) {
@@ -223,11 +200,12 @@ export function MessageFlowViz() {
       return;
     }
 
+    const color = EVENT_TYPE_COLORS[eventType];
+
     if (targets.length === 0) {
       console.log('[MessageFlowViz] No targets found for actor:', actorId, 'event:', eventName);
       // For actors with no downstream dependencies, create a visual pulse at the node
       const graphics = new Graphics();
-      const color = getEventColor(eventName);
 
       graphics.circle(0, 0, 4);
       graphics.fill({ color, alpha: 0.9 });
@@ -249,7 +227,7 @@ export function MessageFlowViz() {
         controlY: sourcePos.y,
         progress: 0,
         lifespan: 400, // Short pulse
-        eventName,
+        eventType,
       });
       return;
     }
@@ -262,7 +240,6 @@ export function MessageFlowViz() {
       if (!targetPos) return;
 
       const graphics = new Graphics();
-      const color = getEventColor(eventName);
 
       graphics.circle(0, 0, 4);
       graphics.fill({ color, alpha: 0.9 });
@@ -273,16 +250,17 @@ export function MessageFlowViz() {
       particleContainer!.addChild(graphics);
 
       // Calculate control point for Bezier curve with random offset
-      const midX = (sourcePos.x + targetPos.x) / 2;
-      const midY = (sourcePos.y + targetPos.y) / 2;
-
-      // Add perpendicular offset for curve variance
       const dx = targetPos.x - sourcePos.x;
       const dy = targetPos.y - sourcePos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      // Random offset perpendicular to the line (±30% of distance)
-      const offsetAmount = (Math.random() - 0.5) * distance * 0.6;
+      // Vary the position along the path (40-60% of the way)
+      const pathPosition = 0.4 + Math.random() * 0.2;
+      const midX = sourcePos.x + dx * pathPosition;
+      const midY = sourcePos.y + dy * pathPosition;
+
+      // Add perpendicular offset for curve variance (±25-50% of distance)
+      const offsetAmount = (Math.random() - 0.5) * distance * (0.5 + Math.random() * 0.5);
       const controlX = midX + (-dy / distance) * offsetAmount;
       const controlY = midY + (dx / distance) * offsetAmount;
 
@@ -297,7 +275,7 @@ export function MessageFlowViz() {
         controlY,
         progress: 0,
         lifespan: 600, // 600ms travel time
-        eventName,
+        eventType,
       });
     });
   };
@@ -414,6 +392,20 @@ export function MessageFlowViz() {
   return (
     <div class="message-flow-viz">
       <canvas ref={canvasRef} />
+      <div class="event-legend">
+        <div class="legend-item">
+          <span class="legend-dot legend-custom" />
+          <span class="legend-label">Custom Events</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot legend-state" />
+          <span class="legend-label">State Events</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot legend-system" />
+          <span class="legend-label">System Events</span>
+        </div>
+      </div>
     </div>
   );
 }

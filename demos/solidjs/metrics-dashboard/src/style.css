@@ -19,11 +19,19 @@ body {
 
 .app-title {
   font-size: 2.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.app-description {
+  font-size: 1.1rem;
+  color: #888;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  max-width: 900px;
 }
 
 /* Controls */
@@ -389,12 +397,51 @@ body {
   border-radius: 8px;
   overflow: hidden;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
 }
 
 .message-flow-viz canvas {
   display: block;
-  width: 100%;
+  max-width: 100%;
   height: auto;
+}
+
+.event-legend {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1rem;
+  background: #0a0a0a;
+  border-top: 1px solid #222;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #888;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-custom {
+  background: #667eea;
+}
+
+.legend-state {
+  background: #4caf50;
+}
+
+.legend-system {
+  background: #ff9800;
+}
+
+.legend-label {
+  font-weight: 500;
 }
