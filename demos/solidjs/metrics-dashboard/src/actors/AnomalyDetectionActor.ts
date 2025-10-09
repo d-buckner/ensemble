@@ -23,7 +23,7 @@ export interface AnomalyDetectionEvents {
 }
 
 interface AnomalyDetectionDeps {
-  statistics: ActorClient<StatisticsActor>;
+  StatisticsActor: ActorClient<StatisticsActor>;
 }
 
 /**
@@ -66,7 +66,7 @@ export class AnomalyDetectionActor extends Actor<AnomalyDetectionState, AnomalyD
     });
   }
 
-  @effect('statistics.processedBatch')
+  @effect('StatisticsActor.processedBatch')
   analyzeMetrics(batch: ProcessedBatch): void {
     batch.metrics.forEach(metric => {
       // Update history

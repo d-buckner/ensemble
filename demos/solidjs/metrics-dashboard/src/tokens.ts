@@ -5,7 +5,7 @@ import type { MetricGeneratorActor } from './actors/MetricGeneratorActor';
 import type { StatisticsActor } from './actors/StatisticsActor';
 
 
-export const GeneratorToken = createActorToken<MetricGeneratorActor>('generator');
-export const StatisticsToken = createActorToken<StatisticsActor>('statistics');
-export const AnomalyDetectionToken = createActorToken<AnomalyDetectionActor>('anomalyDetection');
-export const DashboardToken = createActorToken<DashboardActor>('dashboard');
+export const GeneratorToken = createActorToken<MetricGeneratorActor>('MetricGeneratorActor');
+export const StatisticsToken = createActorToken<StatisticsActor>('StatisticsActor');
+export const AnomalyDetectionToken = createActorToken<AnomalyDetectionActor>('AnomalyDetectionActor');
+export const DashboardToken = createActorToken<DashboardActor>('DashboardActor');

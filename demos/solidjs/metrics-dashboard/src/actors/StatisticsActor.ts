@@ -56,7 +56,7 @@ export interface StatisticsEvents {
 }
 
 interface StatisticsDeps {
-  generator: ActorClient<MetricGeneratorActor>;
+  MetricGeneratorActor: ActorClient<MetricGeneratorActor>;
 }
 
 /**
@@ -84,7 +84,7 @@ export class StatisticsActor extends Actor<StatisticsState, StatisticsEvents> {
     super(StatisticsActor.initialState);
   }
 
-  @effect('generator.metricBatch')
+  @effect('MetricGeneratorActor.metricBatch')
   processMetricBatch(batch: MetricBatch): void {
     console.log('[StatisticsActor] processMetricBatch called with:', batch ? `${batch.metrics.length} metrics` : 'null');
     this.setState(draft => {

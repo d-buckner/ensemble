@@ -25,7 +25,7 @@ async function main() {
     token: StatisticsToken,
     actor: StatisticsActor,
     dependencies: {
-      generator: GeneratorToken
+      MetricGeneratorActor: GeneratorToken
     }
   });
 
@@ -33,7 +33,7 @@ async function main() {
     token: AnomalyDetectionToken,
     actor: AnomalyDetectionActor,
     dependencies: {
-      statistics: StatisticsToken
+      StatisticsActor: StatisticsToken
     }
   });
 
@@ -41,8 +41,8 @@ async function main() {
     token: DashboardToken,
     actor: DashboardActor,
     dependencies: {
-      statistics: StatisticsToken,
-      anomalyDetection: AnomalyDetectionToken
+      StatisticsActor: StatisticsToken,
+      AnomalyDetectionActor: AnomalyDetectionToken
     }
   });
 

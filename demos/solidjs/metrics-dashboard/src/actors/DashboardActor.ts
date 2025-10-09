@@ -25,8 +25,8 @@ export interface DashboardState {
 }
 
 interface DashboardDeps {
-  statistics: ActorClient<StatisticsActor>;
-  anomalyDetection: ActorClient<AnomalyDetectionActor>;
+  StatisticsActor: ActorClient<StatisticsActor>;
+  AnomalyDetectionActor: ActorClient<AnomalyDetectionActor>;
 }
 
 /**
@@ -61,7 +61,7 @@ export class DashboardActor extends Actor<DashboardState> {
     super(DashboardActor.initialState);
   }
 
-  @effect('statistics.processedBatch')
+  @effect('StatisticsActor.processedBatch')
   handleProcessedBatch(batch: ProcessedBatch): void {
     console.log('[DashboardActor] handleProcessedBatch called with:', batch ? `${batch.metrics.length} metrics` : 'null');
 
@@ -94,7 +94,7 @@ export class DashboardActor extends Actor<DashboardState> {
 
   }
 
-  @effect('anomalyDetection.latestAnomaly')
+  @effect('AnomalyDetectionActor.latestAnomaly')
   handleAnomaly(anomaly: Anomaly): void {
     this.setState(draft => {
       draft.recentAnomalies = [anomaly, ...draft.recentAnomalies].slice(0, 5);

@@ -38,10 +38,10 @@ interface Edge {
 
 // Layout positions will be computed from the actual graph
 const POSITION_LAYOUTS: Record<string, NodePosition> = {
-  generator: { x: 400, y: 80 },
-  statistics: { x: 400, y: 220 },
-  anomalyDetection: { x: 250, y: 360 },
-  dashboard: { x: 550, y: 360 },
+  MetricGeneratorActor: { x: 400, y: 80 },
+  StatisticsActor: { x: 400, y: 220 },
+  AnomalyDetectionActor: { x: 250, y: 360 },
+  DashboardActor: { x: 550, y: 360 },
 };
 
 // Custom events (manually emitted)
