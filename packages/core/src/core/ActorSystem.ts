@@ -96,6 +96,13 @@ export default class ActorSystem {
   }
 
   /**
+   * Get all actor IDs in the system
+   */
+  getAllActorIds(): string[] {
+    return Object.keys(this.graph);
+  }
+
+  /**
    * Validate that the actor dependency graph has no cycles
    * @throws Error if a cycle is detected
    */
@@ -349,11 +356,11 @@ export default class ActorSystem {
 
         // Subscribe to the specific event on the dependency
         // Event name comes from decorator metadata and must be cast since depClient type is generic
-        (depClient as any).on(eventName, () => {
+        (depClient as any).on(eventName, (payload: unknown) => {
           // Execute the effect method on the actor (dynamic method access)
           const actor = actorInstance as unknown as Record<string, unknown>;
           if (typeof actor[methodName] === 'function') {
-            (actor[methodName] as () => void)();
+            (actor[methodName] as (payload: unknown) => void)(payload);
           }
         });
       }
@@ -378,5 +385,13 @@ export default class ActorSystem {
 
     const client = this.clients.get(node.token.symbol);
     return client || null;
+  }
+
+  /**
+   * Set a message monitor to observe all messages flowing through the system
+   * Used for debugging, visualization, and devtools
+   */
+  setMessageMonitor(monitor: ((event: any) => void) | undefined): void {
+    this.mainBus?.setMainMessageMonitor(monitor);
   }
 }

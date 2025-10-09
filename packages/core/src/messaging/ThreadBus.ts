@@ -16,8 +16,17 @@ interface Listeners {
   }
 }
 
+export interface MessageEvent {
+  actorId: string;
+  eventName: string;
+  timestamp: number;
+}
+
+export type MessageMonitor = (event: MessageEvent) => void;
+
 export abstract class ThreadBus {
   private listeners: Listeners = {};
+  private messageMonitor?: MessageMonitor;
 
   on(
     actorId: string,
@@ -44,11 +53,24 @@ export abstract class ThreadBus {
     this.listeners[actorId]?.[eventName]?.delete(callback);
   }
 
+  setMessageMonitor(monitor: MessageMonitor | undefined): void {
+    this.messageMonitor = monitor;
+  }
+
   emit(
     actorId: string,
     eventName: string,
     payload: unknown
   ): void {
+    // Notify monitor if present (for visualization/debugging)
+    if (this.messageMonitor) {
+      this.messageMonitor({
+        actorId,
+        eventName,
+        timestamp: Date.now()
+      });
+    }
+
     this.listeners[actorId]?.[eventName]?.forEach(callback => {
       callback(payload);
     });

@@ -1,4 +1,4 @@
-import { Actor } from '@d-buckner/ensemble-core';
+import { Actor, effect } from '@d-buckner/ensemble-core';
 import type { AnomalyDetectionActor, Anomaly } from './AnomalyDetectionActor';
 import type { StatisticsActor, ProcessedBatch, ProcessedMetrics } from './StatisticsActor';
 import type { ActorClient } from '@d-buckner/ensemble-core';
@@ -56,78 +56,20 @@ export class DashboardActor extends Actor<DashboardState> {
 
   protected declare deps: DashboardDeps;
   private readonly samplingRate = 10; // Sample every Nth metric to reduce chart density
-  private buffer: ProcessedMetrics[] = [];
-  private animationFrameId: number | null = null;
-  private readonly pointsPerFrame = 2; // Add 2 points per frame at 60fps = ~120 points/sec
 
   constructor() {
     super(DashboardActor.initialState);
   }
 
-  onInit(): void {
-    console.log('[DashboardActor] onInit called, subscribing to processedBatch and latestAnomaly');
-    this.deps.statistics.on('processedBatch', this.bufferBatch.bind(this));
-    this.deps.anomalyDetection.on('latestAnomaly', this.addAnomaly.bind(this));
-    // Animation starts on-demand when data arrives
-  }
+  @effect('statistics.processedBatch')
+  handleProcessedBatch(batch: ProcessedBatch): void {
+    console.log('[DashboardActor] handleProcessedBatch called with:', batch ? `${batch.metrics.length} metrics` : 'null');
 
-  onDestroy(): void {
-    this.deps.statistics.off('processedBatch', this.bufferBatch.bind(this));
-    this.deps.anomalyDetection.off('latestAnomaly', this.addAnomaly.bind(this));
-    this.stopAnimation();
-  }
-
-  private startAnimation(): void {
-    if (this.animationFrameId !== null) return; // Already running
-
-    const animate = () => {
-      const hadData = this.drainBuffer();
-
-      // Continue animation only if there's still data in the buffer
-      if (hadData && this.buffer.length > 0) {
-        this.animationFrameId = requestAnimationFrame(animate);
-      } else {
-        this.animationFrameId = null;
-      }
-    };
-    this.animationFrameId = requestAnimationFrame(animate);
-  }
-
-  private stopAnimation(): void {
-    if (this.animationFrameId !== null) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
-  }
-
-  private bufferBatch(batch: ProcessedBatch | null): void {
-    console.log('[DashboardActor] bufferBatch called with:', batch ? `${batch.metrics.length} metrics` : 'null');
-    if (!batch) return;
-
-    // Sample metrics to avoid overwhelming the buffer
+    // Sample metrics to reduce chart density
     // Take every Nth metric plus the last one (most recent)
-    const sampledMetrics = batch.metrics.filter((_, i) =>
+    const metricsToAdd = batch.metrics.filter((_, i) =>
       i % this.samplingRate === 0 || i === batch.metrics.length - 1
     );
-
-    // Add to buffer for smooth consumption
-    this.buffer.push(...sampledMetrics);
-
-    // Keep buffer size reasonable (max 500 points = ~5 seconds of data)
-    if (this.buffer.length > 500) {
-      this.buffer = this.buffer.slice(-500);
-    }
-
-    // Start animation if not already running
-    this.startAnimation();
-  }
-
-  private drainBuffer(): boolean {
-    if (this.buffer.length === 0) return false;
-
-    // Take up to pointsPerFrame metrics from buffer
-    const count = Math.min(this.pointsPerFrame, this.buffer.length);
-    const metricsToAdd = this.buffer.splice(0, count);
 
     this.setState(draft => {
       // Update current metrics to the latest we're adding
@@ -150,11 +92,10 @@ export class DashboardActor extends Actor<DashboardState> {
       this.trimSeries(draft.chartData.errorRateSeries, draft.windowSize);
     });
 
-    return true;
   }
 
-  private addAnomaly(anomaly: Anomaly | null): void {
-    if (!anomaly) return;
+  @effect('anomalyDetection.latestAnomaly')
+  handleAnomaly(anomaly: Anomaly): void {
     this.setState(draft => {
       draft.recentAnomalies = [anomaly, ...draft.recentAnomalies].slice(0, 5);
     });

@@ -1,4 +1,4 @@
-import { Actor, thread } from '@d-buckner/ensemble-core';
+import { Actor, thread, effect } from '@d-buckner/ensemble-core';
 import type { MetricGeneratorActor, MetricBatch } from './MetricGeneratorActor';
 import type { ActorClient } from '@d-buckner/ensemble-core';
 
@@ -49,7 +49,10 @@ export interface StatisticsState {
   isProcessing: boolean;
   batchesProcessed: number;
   metricsProcessed: number;
-  processedBatch: ProcessedBatch | null;
+}
+
+export interface StatisticsEvents {
+  processedBatch: ProcessedBatch;
 }
 
 interface StatisticsDeps {
@@ -68,12 +71,11 @@ interface StatisticsDeps {
  * Runs on WORKER-2 for parallel computation
  */
 @thread('worker-2')
-export class StatisticsActor extends Actor<StatisticsState> {
+export class StatisticsActor extends Actor<StatisticsState, StatisticsEvents> {
   static readonly initialState: StatisticsState = {
     isProcessing: false,
     batchesProcessed: 0,
-    metricsProcessed: 0,
-    processedBatch: null
+    metricsProcessed: 0
   };
 
   protected declare deps: StatisticsDeps;
@@ -82,18 +84,9 @@ export class StatisticsActor extends Actor<StatisticsState> {
     super(StatisticsActor.initialState);
   }
 
-  onInit(): void {
-    console.log('[StatisticsActor] onInit called, subscribing to latestBatch');
-    this.deps.generator.on('latestBatch', this.processMetricBatch.bind(this));
-  }
-
-  onDestroy(): void {
-    this.deps.generator.off('latestBatch', this.processMetricBatch.bind(this));
-  }
-
-  private processMetricBatch(batch: MetricBatch | null): void {
+  @effect('generator.metricBatch')
+  processMetricBatch(batch: MetricBatch): void {
     console.log('[StatisticsActor] processMetricBatch called with:', batch ? `${batch.metrics.length} metrics` : 'null');
-    if (!batch) return;
     this.setState(draft => {
       draft.isProcessing = true;
     });
@@ -192,13 +185,18 @@ export class StatisticsActor extends Actor<StatisticsState> {
       };
     });
 
-    // Update state with processed batch
+    // Emit processed batch event
+    const processedBatch: ProcessedBatch = {
+      metrics: processed,
+      batchStartTime: batch.batchStartTime,
+      batchEndTime: batch.batchEndTime
+    };
+
+    console.log('[StatisticsActor] Emitting processedBatch event with', processed.length, 'processed metrics');
+    this.emit('processedBatch', processedBatch);
+
+    // Update state
     this.setState(draft => {
-      draft.processedBatch = {
-        metrics: processed,
-        batchStartTime: batch.batchStartTime,
-        batchEndTime: batch.batchEndTime
-      };
       draft.isProcessing = false;
       draft.batchesProcessed++;
       draft.metricsProcessed += batch.metrics.length;

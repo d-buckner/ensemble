@@ -1,4 +1,4 @@
-import { Actor, thread } from '@d-buckner/ensemble-core';
+import { Actor, effect, thread } from '@d-buckner/ensemble-core';
 import type { StatisticsActor, ProcessedBatch, ProcessedMetrics } from './StatisticsActor';
 import type { ActorClient } from '@d-buckner/ensemble-core';
 
@@ -16,7 +16,10 @@ export interface AnomalyDetectionState {
   isMonitoring: boolean;
   anomaliesDetected: number;
   recentAnomalies: Anomaly[];
-  latestAnomaly: Anomaly | null;
+}
+
+export interface AnomalyDetectionEvents {
+  latestAnomaly: Anomaly;
 }
 
 interface AnomalyDetectionDeps {
@@ -35,12 +38,11 @@ interface AnomalyDetectionDeps {
  * Runs on WORKER-2 alongside StatisticsActor for efficient event communication
  */
 @thread('worker-2')
-export class AnomalyDetectionActor extends Actor<AnomalyDetectionState> {
+export class AnomalyDetectionActor extends Actor<AnomalyDetectionState, AnomalyDetectionEvents> {
   static readonly initialState: AnomalyDetectionState = {
     isMonitoring: false,
     anomaliesDetected: 0,
-    recentAnomalies: [],
-    latestAnomaly: null
+    recentAnomalies: []
   };
 
   protected declare deps: AnomalyDetectionDeps;
@@ -62,16 +64,10 @@ export class AnomalyDetectionActor extends Actor<AnomalyDetectionState> {
     this.setState(draft => {
       draft.isMonitoring = true;
     });
-
-    this.deps.statistics.on('processedBatch', this.analyzeMetrics.bind(this));
   }
 
-  onDestroy(): void {
-    this.deps.statistics.off('processedBatch', this.analyzeMetrics.bind(this));
-  }
-
-  private analyzeMetrics(batch: ProcessedBatch | null): void {
-    if (!batch) return;
+  @effect('statistics.processedBatch')
+  analyzeMetrics(batch: ProcessedBatch): void {
     batch.metrics.forEach(metric => {
       // Update history
       this.updateHistory(this.cpuHistory, metric.cpu.overall);
@@ -179,8 +175,9 @@ export class AnomalyDetectionActor extends Actor<AnomalyDetectionState> {
   }
 
   private recordAnomaly(anomaly: Anomaly): void {
+    this.emit('latestAnomaly', anomaly);
+
     this.setState(draft => {
-      draft.latestAnomaly = anomaly;
       draft.anomaliesDetected++;
       draft.recentAnomalies = [anomaly, ...draft.recentAnomalies].slice(0, 10);
     });

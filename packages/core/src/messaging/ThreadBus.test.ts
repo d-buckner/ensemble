@@ -173,4 +173,113 @@ describe('ThreadBus', () => {
       expect(actor2Event1).toHaveBeenCalledWith({ value: 3 });
     });
   });
+
+  describe('message monitoring', () => {
+    it('should call message monitor when messages are emitted', () => {
+      const monitor = vi.fn();
+      bus.setMessageMonitor(monitor);
+
+      bus.emit('actor1', 'event1', { data: 'test' });
+
+      expect(monitor).toHaveBeenCalledTimes(1);
+      expect(monitor).toHaveBeenCalledWith({
+        actorId: 'actor1',
+        eventName: 'event1',
+        timestamp: expect.any(Number),
+      });
+    });
+
+    it('should call monitor for each emitted message', () => {
+      const monitor = vi.fn();
+      bus.setMessageMonitor(monitor);
+
+      bus.emit('actor1', 'event1', { data: 'test1' });
+      bus.emit('actor2', 'event2', { data: 'test2' });
+      bus.emit('actor1', 'event3', { data: 'test3' });
+
+      expect(monitor).toHaveBeenCalledTimes(3);
+      expect(monitor).toHaveBeenNthCalledWith(1, {
+        actorId: 'actor1',
+        eventName: 'event1',
+        timestamp: expect.any(Number),
+      });
+      expect(monitor).toHaveBeenNthCalledWith(2, {
+        actorId: 'actor2',
+        eventName: 'event2',
+        timestamp: expect.any(Number),
+      });
+      expect(monitor).toHaveBeenNthCalledWith(3, {
+        actorId: 'actor1',
+        eventName: 'event3',
+        timestamp: expect.any(Number),
+      });
+    });
+
+    it('should not call monitor when monitor is undefined', () => {
+      bus.setMessageMonitor(undefined);
+
+      expect(() => bus.emit('actor1', 'event1', { data: 'test' })).not.toThrow();
+    });
+
+    it('should stop calling monitor after being cleared', () => {
+      const monitor = vi.fn();
+      bus.setMessageMonitor(monitor);
+
+      bus.emit('actor1', 'event1', { data: 'test1' });
+      bus.setMessageMonitor(undefined);
+      bus.emit('actor1', 'event2', { data: 'test2' });
+
+      expect(monitor).toHaveBeenCalledTimes(1);
+      expect(monitor).toHaveBeenCalledWith({
+        actorId: 'actor1',
+        eventName: 'event1',
+        timestamp: expect.any(Number),
+      });
+    });
+
+    it('should replace existing monitor when a new one is set', () => {
+      const monitor1 = vi.fn();
+      const monitor2 = vi.fn();
+
+      bus.setMessageMonitor(monitor1);
+      bus.emit('actor1', 'event1', { data: 'test1' });
+
+      bus.setMessageMonitor(monitor2);
+      bus.emit('actor1', 'event2', { data: 'test2' });
+
+      expect(monitor1).toHaveBeenCalledTimes(1);
+      expect(monitor2).toHaveBeenCalledTimes(1);
+    });
+
+    it('should include timestamp in monitor events', () => {
+      const monitor = vi.fn();
+      bus.setMessageMonitor(monitor);
+
+      const beforeEmit = Date.now();
+      bus.emit('actor1', 'event1', { data: 'test' });
+      const afterEmit = Date.now();
+
+      expect(monitor).toHaveBeenCalledTimes(1);
+      const event = monitor.mock.calls[0][0];
+      expect(event.timestamp).toBeGreaterThanOrEqual(beforeEmit);
+      expect(event.timestamp).toBeLessThanOrEqual(afterEmit);
+    });
+
+    it('should not affect normal listener behavior', () => {
+      const monitor = vi.fn();
+      const listener = vi.fn();
+
+      bus.setMessageMonitor(monitor);
+      bus.on('actor1', 'event1', listener);
+
+      bus.emit('actor1', 'event1', { data: 'test' });
+
+      expect(listener).toHaveBeenCalledWith({ data: 'test' });
+      expect(monitor).toHaveBeenCalledWith({
+        actorId: 'actor1',
+        eventName: 'event1',
+        timestamp: expect.any(Number),
+      });
+    });
+  });
 });

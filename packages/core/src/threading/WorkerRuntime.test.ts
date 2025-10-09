@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Actor, type ActorConstructor } from '../core/Actor';
-import { action } from '../core/decorators';
+import { action, effect } from '../core/decorators';
 import WorkerBus from '../messaging/WorkerBus';
 import WorkerRuntime from './WorkerRuntime';
+import type { ActorClient } from '../core/ActorClient';
 
 // Mock the global self object for worker environment
 (globalThis as any).self = {
@@ -48,6 +49,45 @@ class AnotherActor extends Actor<{ value: string }, AnotherActorEvents> {
   }
 }
 
+// Test actors for effect functionality
+interface SourceActorEvents {
+  dataEmitted: { value: number };
+}
+
+class SourceActor extends Actor<{ count: number }, SourceActorEvents> {
+  static readonly initialState = { count: 0 };
+
+  constructor(_options: {}) {
+    super(SourceActor.initialState);
+  }
+
+  @action
+  emitData(value: number) {
+    this.emit('dataEmitted', { value });
+  }
+}
+
+interface ConsumerDeps {
+  source: ActorClient<SourceActor>;
+}
+
+class ConsumerActor extends Actor<{ receivedValues: number[] }> {
+  static readonly initialState = { receivedValues: [] };
+
+  protected declare deps: ConsumerDeps;
+
+  constructor(_options: {}) {
+    super(ConsumerActor.initialState);
+  }
+
+  @effect('source.dataEmitted')
+  handleDataEmitted(data: { value: number }) {
+    this.setState(draft => {
+      draft.receivedValues.push(data.value);
+    });
+  }
+}
+
 describe('WorkerRuntime', () => {
   let runtime: WorkerRuntime;
   let workerBus: WorkerBus;
@@ -58,10 +98,14 @@ describe('WorkerRuntime', () => {
     actorRegistry = {
       TestActor,
       AnotherActor,
+      SourceActor,
+      ConsumerActor,
     };
     const actorMetadata = {
       TestActor: { count: 0 },
       AnotherActor: { value: 'hello' },
+      SourceActor: { count: 0 },
+      ConsumerActor: { receivedValues: [] },
     };
     runtime = new WorkerRuntime(workerBus, actorRegistry, actorMetadata);
   });
@@ -248,6 +292,133 @@ describe('WorkerRuntime', () => {
       expect(() => {
         runtime.handleEvent('unknown-actor', 'someAction', []);
       }).toThrow('Actor not found: unknown-actor');
+    });
+  });
+
+  describe('effect setup', () => {
+    it('should trigger effects when dependency emits custom events', async () => {
+      // Instantiate source actor first
+      await runtime.instantiate({
+        type: 'instantiate',
+        actorId: 'source-1',
+        className: 'SourceActor',
+        metadata: {
+          id: 'source-1',
+          name: 'SourceActor',
+          threadId: 'worker-1',
+          dependencies: [],
+        },
+        dependencies: {},
+      });
+
+      // Instantiate consumer actor with source as dependency
+      await runtime.instantiate({
+        type: 'instantiate',
+        actorId: 'consumer-1',
+        className: 'ConsumerActor',
+        metadata: {
+          id: 'consumer-1',
+          name: 'ConsumerActor',
+          threadId: 'worker-1',
+          dependencies: ['source-1'],
+        },
+        dependencies: {
+          source: {
+            actorId: 'source-1',
+            className: 'SourceActor',
+          },
+        },
+      });
+
+      // Track state changes on consumer
+      const receivedValuesUpdates: number[][] = [];
+      workerBus.on('consumer-1', 'receivedValues', (payload: unknown) => {
+        receivedValuesUpdates.push([...(payload as number[])]);
+      });
+
+      // Emit events from source actor
+      runtime.handleEvent('source-1', 'emitData', [42]);
+      runtime.handleEvent('source-1', 'emitData', [100]);
+
+      // Verify consumer effect was triggered and state updated
+      expect(receivedValuesUpdates.length).toBeGreaterThanOrEqual(2);
+      expect(receivedValuesUpdates[0]).toEqual([42]);
+      expect(receivedValuesUpdates[1]).toEqual([42, 100]);
+    });
+
+    it('should trigger effects when dependency state changes', async () => {
+      // Instantiate source actor first
+      await runtime.instantiate({
+        type: 'instantiate',
+        actorId: 'test-source',
+        className: 'TestActor',
+        metadata: {
+          id: 'test-source',
+          name: 'TestActor',
+          threadId: 'worker-1',
+          dependencies: [],
+        },
+        dependencies: {},
+      });
+
+      // Create a consumer that reacts to state changes
+      interface StateConsumerDeps {
+        source: ActorClient<TestActor>;
+      }
+
+      class StateConsumerActor extends Actor<{ lastCount: number }> {
+        static readonly initialState = { lastCount: -1 };
+
+        protected declare deps: StateConsumerDeps;
+
+        constructor(_options: {}) {
+          super(StateConsumerActor.initialState);
+        }
+
+        @effect('source.count')
+        handleCountChange(count: number) {
+          this.setState(draft => {
+            draft.lastCount = count;
+          });
+        }
+      }
+
+      // Register the new actor type
+      actorRegistry.StateConsumerActor = StateConsumerActor;
+      (runtime as any).actorMetadata.StateConsumerActor = { lastCount: -1 };
+
+      await runtime.instantiate({
+        type: 'instantiate',
+        actorId: 'state-consumer',
+        className: 'StateConsumerActor',
+        metadata: {
+          id: 'state-consumer',
+          name: 'StateConsumerActor',
+          threadId: 'worker-1',
+          dependencies: ['test-source'],
+        },
+        dependencies: {
+          source: {
+            actorId: 'test-source',
+            className: 'TestActor',
+          },
+        },
+      });
+
+      // Track state changes on consumer
+      const lastCountUpdates: number[] = [];
+      workerBus.on('state-consumer', 'lastCount', (payload: unknown) => {
+        lastCountUpdates.push(payload as number);
+      });
+
+      // Trigger state changes on source
+      runtime.handleEvent('test-source', 'increment', []);
+      runtime.handleEvent('test-source', 'increment', []);
+
+      // Verify consumer effect was triggered by state changes
+      expect(lastCountUpdates.length).toBeGreaterThanOrEqual(2);
+      expect(lastCountUpdates[0]).toBe(1);
+      expect(lastCountUpdates[1]).toBe(2);
     });
   });
 });

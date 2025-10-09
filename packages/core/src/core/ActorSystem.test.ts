@@ -317,6 +317,50 @@ describe('ActorSystem', () => {
     });
   });
 
+  describe('message monitoring', () => {
+    it('should allow setting a message monitor', async () => {
+      const monitor = vi.fn();
+
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+      });
+
+      await system.start();
+      system.setMessageMonitor(monitor);
+
+      // Message monitor is set but won't be called until events are emitted
+      expect(() => system.setMessageMonitor(monitor)).not.toThrow();
+    });
+
+    it('should allow clearing a message monitor', async () => {
+      const monitor = vi.fn();
+
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+      });
+
+      await system.start();
+      system.setMessageMonitor(monitor);
+      system.setMessageMonitor(undefined);
+
+      expect(() => system.setMessageMonitor(undefined)).not.toThrow();
+    });
+
+    it('should not throw when setting monitor before system start', () => {
+      const monitor = vi.fn();
+
+      system.register({
+        token: mockToken,
+        actor: MockActor,
+      });
+
+      // Should not throw even though mainBus is not yet created
+      expect(() => system.setMessageMonitor(monitor)).not.toThrow();
+    });
+  });
+
   describe('shutdown', () => {
     it('should dispose all clients and clear collections', async () => {
       system.register({

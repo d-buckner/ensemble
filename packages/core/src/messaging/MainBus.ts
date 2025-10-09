@@ -6,6 +6,14 @@ import { ThreadBus } from './ThreadBus';
 import type ActorSystem from '../core/ActorSystem';
 import type { WorkerRegistry } from '../threading/WorkerRegistry';
 
+
+export interface MessageWithTargets {
+  actorId: string;
+  eventName: string;
+  timestamp: number;
+  targets: string[];
+}
+
 /**
  * MainBus runs on the main thread and routes messages between:
  * 1. Actors local to the main thread
@@ -16,6 +24,7 @@ import type { WorkerRegistry } from '../threading/WorkerRegistry';
 export class MainBus extends ThreadBus {
   private actorSystem: ActorSystem;
   private workerRegistry: WorkerRegistry;
+  private mainMessageMonitor?: (event: MessageWithTargets) => void;
 
   constructor(
     actorSystem: ActorSystem,
@@ -24,6 +33,33 @@ export class MainBus extends ThreadBus {
     super();
     this.actorSystem = actorSystem;
     this.workerRegistry = workerRegistry;
+  }
+
+  setMainMessageMonitor(monitor: ((event: MessageWithTargets) => void) | undefined): void {
+    this.mainMessageMonitor = monitor;
+  }
+
+  private notifyMonitor(actorId: string, eventName: string): void {
+    if (!this.mainMessageMonitor) return;
+
+    // Get targets from ActorSystem dependency graph
+    const actor = this.actorSystem.get(actorId);
+    const targets = actor?.dependents.map(t => t.id) || [];
+
+    this.mainMessageMonitor({
+      actorId,
+      eventName,
+      timestamp: Date.now(),
+      targets,
+    });
+  }
+
+  emit(actorId: string, eventName: string, payload: unknown): void {
+    // Notify monitor with routing information
+    this.notifyMonitor(actorId, eventName);
+
+    // Call parent implementation
+    super.emit(actorId, eventName, payload);
   }
 
   protected post(actorId: string, eventName: string, payload: unknown): void {
@@ -75,6 +111,9 @@ export class MainBus extends ThreadBus {
       }
 
       Logger.debug(`[MainBus] Received event from worker: actorId=${actorId}, eventName=${eventName}`);
+
+      // Notify monitor with routing information
+      this.notifyMonitor(actorId, eventName);
 
       // Notify local listeners on main thread
       this.receive(actorId, eventName, payload);

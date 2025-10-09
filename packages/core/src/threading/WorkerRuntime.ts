@@ -1,6 +1,8 @@
 import { ActorClient } from '../core/ActorClient';
+import { getEffectMetadata } from '../core/decorators';
 import { ActorBus } from '../messaging/ActorBus';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
+import { Logger } from '../utils/Logger';
 import type { Actor, ActorMetadata, ActorConstructor } from '../core/Actor';
 import type { WithDeps } from '../core/ActorSystem';
 import type { AllEvents } from '../messaging/types';
@@ -97,12 +99,49 @@ export default class WorkerRuntime {
     // Store instance
     this.actors[actorId] = actorInstance;
 
+    // Setup effects - subscribe to dependency events
+    this.setupEffects(actorInstance, ActorClass, deps);
+
     // Send initial state to main thread for ActorClient hydration
     // Use static initialState to avoid accessing actor's private state
     actorBus.emit(PROTOCOL_EVENTS.STATE as any, ActorClass.initialState);
 
     // Call lifecycle hook (access protected method via type assertion)
     await actorInstance.onInit?.call(actorInstance);
+  }
+
+  /**
+   * Setup effect subscriptions for an actor
+   */
+  private setupEffects(
+    actorInstance: Actor,
+    ActorClass: ActorConstructor,
+    deps: Record<string, ActorClient<any>>
+  ): void {
+    const effectMetadata = getEffectMetadata(ActorClass);
+
+    for (const { methodName, eventSubscriptions } of effectMetadata) {
+      for (const { actorClientKey, eventName } of eventSubscriptions) {
+        const depClient = deps[actorClientKey];
+
+        if (!depClient) {
+          Logger.error(
+            `Effect "${methodName}" references dependency "${actorClientKey}" which was not found in deps`
+          );
+          continue;
+        }
+
+        // Subscribe to the specific event on the dependency
+        // Event name comes from decorator metadata and must be cast since depClient type is generic
+        (depClient as any).on(eventName, (payload: unknown) => {
+          // Execute the effect method on the actor (dynamic method access)
+          const actor = actorInstance as unknown as Record<string, unknown>;
+          if (typeof actor[methodName] === 'function') {
+            (actor[methodName] as (payload: unknown) => void)(payload);
+          }
+        });
+      }
+    }
   }
 
   /**

@@ -41,7 +41,13 @@ export interface MetricGeneratorState {
   isGenerating: boolean;
   batchesGenerated: number;
   metricsGenerated: number;
-  latestBatch: MetricBatch | null;
+  batchSize: number;
+  batchInterval: number; // ms between batches
+  throughput: number; // target metrics per second
+}
+
+export interface MetricGeneratorEvents {
+  metricBatch: MetricBatch;
 }
 
 /**
@@ -55,19 +61,22 @@ export interface MetricGeneratorState {
  * Runs on WORKER-1 to avoid blocking main thread
  */
 @thread('worker-1')
-export class MetricGeneratorActor extends Actor<MetricGeneratorState> {
+export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGeneratorEvents> {
   static readonly initialState: MetricGeneratorState = {
     isGenerating: false,
     batchesGenerated: 0,
     metricsGenerated: 0,
-    latestBatch: null
+    batchSize: 1,
+    batchInterval: 1, // Calculated: (1 × 1000) / 1000 = 1ms
+    throughput: 1000 // Default 1000 metrics/sec
   };
 
-  private readonly batchInterval = 100; // ms - emit batches every 100ms
-  private readonly metricsPerBatch = 100; // Generate 100 metric snapshots per batch (1000 metrics/sec)
   private readonly endpoints = ['/api/users', '/api/orders', '/api/products', '/api/auth', '/api/analytics'];
   private readonly queries = ['SELECT * FROM users', 'SELECT * FROM orders', 'UPDATE inventory', 'INSERT INTO logs'];
   private intervalId: number | null = null;
+  private currentBatchSize = 1; // Cached batch size for interval callback
+  private currentBatchInterval = 1; // Cached interval for interval callback
+  private currentThroughput = 1000; // Cached throughput for calculations
 
   // Simplex noise generators for smooth, organic trends
   private cpuNoise = createNoise2D();
@@ -121,6 +130,51 @@ export class MetricGeneratorActor extends Actor<MetricGeneratorState> {
     });
   }
 
+  @action
+  setBatchSize(size: number): void {
+    const clampedSize = Math.max(1, Math.min(1000, Math.floor(size)));
+    this.currentBatchSize = clampedSize;
+
+    // Recalculate interval to maintain throughput
+    // throughput (metrics/s) = batchSize × (1000 / interval)
+    // interval = (batchSize × 1000) / throughput
+    const newInterval = Math.max(1, Math.floor((clampedSize * 1000) / this.currentThroughput));
+    this.currentBatchInterval = newInterval;
+
+    this.setState(draft => {
+      draft.batchSize = clampedSize;
+      draft.batchInterval = newInterval;
+    });
+
+    // If currently generating, restart the interval with new timing
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+      this.startBatchGeneration();
+    }
+  }
+
+  @action
+  setThroughput(throughput: number): void {
+    const clampedThroughput = Math.max(1, Math.min(10000, Math.floor(throughput)));
+    this.currentThroughput = clampedThroughput;
+
+    // Recalculate interval based on current batch size
+    // interval = (batchSize × 1000) / throughput
+    const newInterval = Math.max(1, Math.floor((this.currentBatchSize * 1000) / clampedThroughput));
+    this.currentBatchInterval = newInterval;
+
+    this.setState(draft => {
+      draft.throughput = clampedThroughput;
+      draft.batchInterval = newInterval;
+    });
+
+    // If currently generating, restart the interval with new timing
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+      this.startBatchGeneration();
+    }
+  }
+
   private startBatchGeneration(): void {
     this.intervalId = setInterval(() => {
       if (this.intervalId === null) return;
@@ -128,26 +182,29 @@ export class MetricGeneratorActor extends Actor<MetricGeneratorState> {
       const batchStartTime = Date.now();
       const batch: RawMetrics[] = [];
 
-      for (let i = 0; i < this.metricsPerBatch; i++) {
+      for (let i = 0; i < this.currentBatchSize; i++) {
         batch.push(this.generateMetrics());
       }
 
       const batchEndTime = Date.now();
 
-      console.log('[MetricGeneratorActor] Updating latestBatch state with', batch.length, 'metrics');
+      const metricBatch: MetricBatch = {
+        metrics: batch,
+        batchStartTime,
+        batchEndTime
+      };
+
+      console.log('[MetricGeneratorActor] Emitting metricBatch event with', batch.length, 'metrics');
+      this.emit('metricBatch', metricBatch);
+
       this.setState(draft => {
-        draft.latestBatch = {
-          metrics: batch,
-          batchStartTime,
-          batchEndTime
-        };
         draft.batchesGenerated++;
-        draft.metricsGenerated += this.metricsPerBatch;
+        draft.metricsGenerated += this.currentBatchSize;
       });
 
       // Randomly inject anomalies
       this.updateTrends();
-    }, this.batchInterval) as unknown as number;
+    }, this.currentBatchInterval) as unknown as number;
   }
 
   private generateMetrics(): RawMetrics {

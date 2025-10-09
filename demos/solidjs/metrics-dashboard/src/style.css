@@ -72,6 +72,70 @@ body {
   cursor: not-allowed;
 }
 
+.batch-size-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 200px;
+}
+
+.batch-size-control label {
+  font-size: 0.875rem;
+  color: #888;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.batch-size-value {
+  color: #667eea;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.batch-size-control input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #333;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.batch-size-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.batch-size-control input[type="range"]::-webkit-slider-thumb:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.batch-size-control input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #667eea;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+}
+
+.batch-size-control input[type="range"]::-moz-range-thumb:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.batch-size-control input[type="range"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .control-info {
   margin-left: auto;
   display: flex;
@@ -265,6 +329,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .chart-card {
@@ -303,4 +368,33 @@ body {
 
 .u-over {
   background: transparent !important;
+}
+
+/* Message Flow Visualization */
+.message-flow-section {
+  margin-bottom: 2rem;
+}
+
+.message-flow-section h3 {
+  margin-bottom: 1rem;
+  color: #888;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.message-flow-viz {
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.message-flow-viz canvas {
+  display: block;
+  width: 100%;
+  height: auto;
 }

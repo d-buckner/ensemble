@@ -1,7 +1,7 @@
 import { createActor } from '@d-buckner/ensemble-solidjs';
 import { createSignal, onCleanup, For, Show } from 'solid-js';
 import { AnimatedNumber } from './components/AnimatedNumber';
-import { DependencyGraphViz } from './components/DependencyGraphViz';
+import { MessageFlowViz } from './components/MessageFlowViz';
 import { SimpleLineChart } from './components/SimpleLineChart';
 import { GeneratorToken, DashboardToken, AnomalyDetectionToken } from './tokens';
 import './style.css';
@@ -36,8 +36,13 @@ export function App() {
   animationFrameId = requestAnimationFrame(measureFPS);
   onCleanup(() => cancelAnimationFrame(animationFrameId));
 
+  // Auto-start streaming on mount
+  generator.actions.start();
+
   const handleStart = () => generator.actions.start();
   const handleStop = () => generator.actions.stop();
+  const handleBatchSizeChange = (value: number) => generator.actions.setBatchSize(value);
+  const handleThroughputChange = (throughput: number) => generator.actions.setThroughput(throughput);
 
   const getFpsColor = (fps: number) => {
     if (fps >= 55) return '#4caf50';
@@ -79,9 +84,35 @@ export function App() {
         >
           Stop
         </button>
+        <div class="batch-size-control">
+          <label for="batch-size">
+            Batch Size: <span class="batch-size-value">{generator.state.batchSize()}</span>
+          </label>
+          <input
+            id="batch-size"
+            type="range"
+            min="1"
+            max="100"
+            value={generator.state.batchSize()}
+            onInput={(e) => handleBatchSizeChange(parseInt(e.currentTarget.value))}
+          />
+        </div>
+        <div class="batch-size-control">
+          <label for="throughput">
+            Throughput: <span class="batch-size-value">{generator.state.throughput()} metric/s</span>
+          </label>
+          <input
+            id="throughput"
+            type="range"
+            min="1"
+            max="1000"
+            value={generator.state.throughput()}
+            onInput={(e) => handleThroughputChange(parseInt(e.currentTarget.value))}
+          />
+        </div>
         <div class="control-info">
-          <span>Batches: {generator.state.batchesGenerated()}</span>
-          <span>Metrics: {generator.state.metricsGenerated()}</span>
+          <span>Batches: <span style={{'font-variant-numeric':'tabular-nums'}}>{generator.state.batchesGenerated()}</span></span>
+          <span>Metrics: <span style={{'font-variant-numeric':'tabular-nums'}}>{generator.state.metricsGenerated()}</span></span>
         </div>
       </div>
 
@@ -141,10 +172,10 @@ export function App() {
         </div>
       </div>
 
-      {/* Dependency Graph */}
-      <div class="dependency-graph">
-        <h4>Actor Dependency Graph</h4>
-        <DependencyGraphViz />
+      {/* Message Flow Visualization */}
+      <div class="message-flow-section">
+        <h3>Real-Time Message Flow</h3>
+        <MessageFlowViz />
       </div>
 
       {/* Current Metrics */}

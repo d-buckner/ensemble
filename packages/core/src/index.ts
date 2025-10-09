@@ -11,6 +11,10 @@ export type { ActorToken } from './core/ActorToken';
 export { MAIN_THREAD_ID } from './constants';
 export { PROTOCOL_EVENTS } from './messaging/protocol-events';
 
+// Message monitoring
+export type { MessageEvent, MessageMonitor } from './messaging/ThreadBus';
+export type { MessageWithTargets } from './messaging/MainBus';
+
 // Utilities
 export { Logger, LogLevel } from './utils/Logger';
 
