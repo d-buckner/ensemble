@@ -91,7 +91,7 @@ class ConsumerActor extends Actor<{ receivedValues: number[] }> {
 describe('WorkerRuntime', () => {
   let runtime: WorkerRuntime;
   let workerBus: WorkerBus;
-  let actorRegistry: Record<string, ActorConstructor>;
+  let actorRegistry: Record<string, ActorConstructor<any>>;
 
   beforeEach(() => {
     workerBus = new WorkerBus();
@@ -250,14 +250,20 @@ describe('WorkerRuntime', () => {
       });
     });
 
-    it('should route actions to the correct actor instance', () => {
+    it('should route actions to the correct actor instance', async () => {
       expect(TestActor.initialState.count).toBe(0);
 
       const countEvents: number[] = [];
-      workerBus.on('test-1', 'count', (payload: unknown) => { countEvents.push(payload as number); });
+      workerBus.on('test-1', '__state_partial', (payload: unknown) => {
+        const partial = payload as { count?: number };
+        if (partial.count !== undefined) {
+          countEvents.push(partial.count);
+        }
+      });
 
       runtime.handleEvent('test-1', 'increment', []);
 
+      await flushAsync();
       expect(countEvents[0]).toBe(1);
     });
 
@@ -277,15 +283,27 @@ describe('WorkerRuntime', () => {
 
       const actor1CountEvents: number[] = [];
       const actor2CountEvents: number[] = [];
-      workerBus.on('test-1', 'count', (payload: unknown) => { actor1CountEvents.push(payload as number); });
-      workerBus.on('test-2', 'count', (payload: unknown) => { actor2CountEvents.push(payload as number); });
+      workerBus.on('test-1', '__state_partial', (payload: unknown) => {
+        const partial = payload as { count?: number };
+        if (partial.count !== undefined) {
+          actor1CountEvents.push(partial.count);
+        }
+      });
+      workerBus.on('test-2', '__state_partial', (payload: unknown) => {
+        const partial = payload as { count?: number };
+        if (partial.count !== undefined) {
+          actor2CountEvents.push(partial.count);
+        }
+      });
 
       runtime.handleEvent('test-1', 'increment', []);
       runtime.handleEvent('test-2', 'increment', []);
       runtime.handleEvent('test-2', 'increment', []);
 
+      await flushAsync();
       expect(actor1CountEvents[0]).toBe(1);
-      expect(actor2CountEvents[1]).toBe(2);
+      // Both increments on test-2 are batched into one emission
+      expect(actor2CountEvents[0]).toBe(2);
     });
 
     it('should throw error if actor not found when routing action', () => {
@@ -332,18 +350,22 @@ describe('WorkerRuntime', () => {
 
       // Track state changes on consumer
       const receivedValuesUpdates: number[][] = [];
-      workerBus.on('consumer-1', 'receivedValues', (payload: unknown) => {
-        receivedValuesUpdates.push([...(payload as number[])]);
+      workerBus.on('consumer-1', '__state_partial', (payload: unknown) => {
+        const partial = payload as { receivedValues?: number[] };
+        if (partial.receivedValues !== undefined) {
+          receivedValuesUpdates.push([...partial.receivedValues]);
+        }
       });
 
       // Emit events from source actor
       runtime.handleEvent('source-1', 'emitData', [42]);
       runtime.handleEvent('source-1', 'emitData', [100]);
 
+      await flushAsync();
       // Verify consumer effect was triggered and state updated
-      expect(receivedValuesUpdates.length).toBeGreaterThanOrEqual(2);
-      expect(receivedValuesUpdates[0]).toEqual([42]);
-      expect(receivedValuesUpdates[1]).toEqual([42, 100]);
+      // Both effects are batched into one state emission
+      expect(receivedValuesUpdates.length).toBeGreaterThanOrEqual(1);
+      expect(receivedValuesUpdates[0]).toEqual([42, 100]);
     });
 
     it('should trigger effects when dependency state changes', async () => {
@@ -407,18 +429,22 @@ describe('WorkerRuntime', () => {
 
       // Track state changes on consumer
       const lastCountUpdates: number[] = [];
-      workerBus.on('state-consumer', 'lastCount', (payload: unknown) => {
-        lastCountUpdates.push(payload as number);
+      workerBus.on('state-consumer', '__state_partial', (payload: unknown) => {
+        const partial = payload as { lastCount?: number };
+        if (partial.lastCount !== undefined) {
+          lastCountUpdates.push(partial.lastCount);
+        }
       });
 
       // Trigger state changes on source
       runtime.handleEvent('test-source', 'increment', []);
       runtime.handleEvent('test-source', 'increment', []);
 
+      await flushAsync();
       // Verify consumer effect was triggered by state changes
-      expect(lastCountUpdates.length).toBeGreaterThanOrEqual(2);
-      expect(lastCountUpdates[0]).toBe(1);
-      expect(lastCountUpdates[1]).toBe(2);
+      // Both effects are batched into one state emission
+      expect(lastCountUpdates.length).toBeGreaterThanOrEqual(1);
+      expect(lastCountUpdates[0]).toBe(2);
     });
   });
 });

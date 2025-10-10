@@ -1,3 +1,5 @@
+import EventEmitter from './EventEmitter';
+
 /**
  * Thread bus is the core bus local to each thread. The thread bus will receive messages
  * from the main thread and route to the respective actor running on the thread.
@@ -10,12 +12,6 @@
  * compile-time type safety. Type safety is enforced at the IActorBus level.
  */
 
-interface Listeners {
-  [actorId: string]: {
-    [eventName: string]: Set<(payload: unknown) => void>
-  }
-}
-
 export interface MessageEvent {
   actorId: string;
   eventName: string;
@@ -25,7 +21,7 @@ export interface MessageEvent {
 export type MessageMonitor = (event: MessageEvent) => void;
 
 export abstract class ThreadBus {
-  private listeners: Listeners = {};
+  private listeners = new Map<string, EventEmitter<Record<string, unknown>>>();
   private messageMonitor?: MessageMonitor;
 
   on(
@@ -33,16 +29,11 @@ export abstract class ThreadBus {
     eventName: string,
     callback: (payload: unknown) => void
   ): void {
-    if (!this.listeners[actorId]) {
-      this.listeners[actorId] = {};
+    if (!this.listeners.has(actorId)) {
+      this.listeners.set(actorId, new EventEmitter<Record<string, unknown>>());
     }
 
-    const actorListeners = this.listeners[actorId];
-    if (!actorListeners[eventName]) {
-      actorListeners[eventName] = new Set();
-    }
-
-    actorListeners[eventName].add(callback);
+    this.listeners.get(actorId)!.on(eventName, callback);
   }
 
   off(
@@ -50,7 +41,7 @@ export abstract class ThreadBus {
     eventName: string,
     callback: (payload: unknown) => void
   ): void {
-    this.listeners[actorId]?.[eventName]?.delete(callback);
+    this.listeners.get(actorId)?.off(eventName, callback);
   }
 
   setMessageMonitor(monitor: MessageMonitor | undefined): void {
@@ -71,9 +62,7 @@ export abstract class ThreadBus {
       });
     }
 
-    this.listeners[actorId]?.[eventName]?.forEach(callback => {
-      callback(payload);
-    });
+    this.listeners.get(actorId)?.emit(eventName, payload);
     this.post(actorId, eventName, payload);
   }
 
@@ -86,7 +75,7 @@ export abstract class ThreadBus {
     eventName: string,
     payload: unknown
   ): void {
-    this.listeners[actorId]?.[eventName]?.forEach(callback => callback(payload));
+    this.listeners.get(actorId)?.emit(eventName, payload);
   }
 
   protected abstract post(

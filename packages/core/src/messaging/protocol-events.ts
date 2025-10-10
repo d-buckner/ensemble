@@ -9,6 +9,8 @@ export const PROTOCOL_EVENTS = {
   STATE_REQUEST: '__state-request',
   /** Actor sending its state to client */
   STATE: '__state',
+  /** Actor sending a partial state update (batched changes) */
+  STATE_PARTIAL: '__state_partial',
   /** Client notifying that state has been hydrated */
   HYDRATED: '__hydrated',
 } as const;

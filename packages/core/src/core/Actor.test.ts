@@ -4,7 +4,6 @@ import { Actor } from './Actor';
 import { action } from './decorators';
 import type { AllEvents } from '../messaging/types';
 
-
 interface TestState extends Record<string, unknown> {
   count: number;
   name: string;
@@ -90,7 +89,7 @@ describe('Actor', () => {
   });
 
   describe('initialization', () => {
-    it('should initialize with provided state', () => {
+    it('should initialize with provided state', async () => {
       const customActor = new TestActor({ count: 10, name: 'custom', items: [] });
       const customBus = new MockBus<AllEvents<TestState, TestEvents>>();
 
@@ -103,12 +102,18 @@ describe('Actor', () => {
 
       // Verify by listening to state events when triggered
       const countEvents: number[] = [];
-      customBus.on('count', (count: number) => { countEvents.push(count); });
+      customBus.on('__state_partial', (payload: unknown) => {
+        const partial = payload as Partial<TestState>;
+        if (partial.count !== undefined) {
+          countEvents.push(partial.count);
+        }
+      });
 
       customActor.callSetState(draft => {
         draft.count = 11; // Trigger event
       });
 
+      await flushAsync();
       expect(countEvents[0]).toBe(11); // Confirms state was initialized to 10
     });
 
@@ -126,120 +131,156 @@ describe('Actor', () => {
       expect(TestActor.initialState.name).toBe('test');
     });
 
-    it('should update state with setState', () => {
+    it('should update state with setState', async () => {
       const countEvents: number[] = [];
-      bus.on('count', (count) => { countEvents.push(count); });
+      bus.on('__state_partial', (payload: unknown) => {
+        const partial = payload as Partial<TestState>;
+        if (partial.count !== undefined) {
+          countEvents.push(partial.count);
+        }
+      });
 
       actor.callSetState(draft => {
         draft.count = 5;
       });
 
+      await flushAsync();
       expect(countEvents[0]).toBe(5);
     });
 
-    it('should emit events only for changed top-level properties', () => {
-      const countCallback = vi.fn();
-      const nameCallback = vi.fn();
+    it('should emit events only for changed top-level properties', async () => {
+      const partialCallback = vi.fn();
 
-      bus.on('count', countCallback);
-      bus.on('name', nameCallback);
+      bus.on('__state_partial', partialCallback);
 
       actor.callSetState(draft => {
         draft.count = 10;
       });
 
-      expect(countCallback).toHaveBeenCalledWith(10);
-      expect(nameCallback).not.toHaveBeenCalled();
+      await flushAsync();
+      expect(partialCallback).toHaveBeenCalledWith({ count: 10 });
+      expect(partialCallback).toHaveBeenCalledTimes(1);
     });
 
-    it('should emit events for multiple changed properties', () => {
-      const countCallback = vi.fn();
-      const nameCallback = vi.fn();
+    it('should emit events for multiple changed properties', async () => {
+      const partialCallback = vi.fn();
 
-      bus.on('count', countCallback);
-      bus.on('name', nameCallback);
+      bus.on('__state_partial', partialCallback);
 
       actor.callSetState(draft => {
         draft.count = 10;
         draft.name = 'updated';
       });
 
-      expect(countCallback).toHaveBeenCalledWith(10);
-      expect(nameCallback).toHaveBeenCalledWith('updated');
+      await flushAsync();
+      expect(partialCallback).toHaveBeenCalledWith({ count: 10, name: 'updated' });
+      expect(partialCallback).toHaveBeenCalledTimes(1);
     });
 
     it('should not emit events if state unchanged', () => {
-      const countCallback = vi.fn();
+      const partialCallback = vi.fn();
 
-      bus.on('count', countCallback);
+      bus.on('__state_partial', partialCallback);
 
       actor.callSetState(draft => {
         draft.count = 0; // Same value
       });
 
-      expect(countCallback).not.toHaveBeenCalled();
+      expect(partialCallback).not.toHaveBeenCalled();
     });
 
-    it('should emit events for nested property changes', () => {
+    it('should emit events for nested property changes', async () => {
       const itemsCallback = vi.fn();
 
-      bus.on('items', itemsCallback);
+      bus.on('__state_partial', (payload: unknown) => {
+        const partial = payload as Partial<TestState>;
+        if (partial.items !== undefined) {
+          itemsCallback(partial.items);
+        }
+      });
 
       actor.addItem('item-1', 100);
 
+      await flushAsync();
       expect(itemsCallback).toHaveBeenCalledWith([{ id: 'item-1', value: 100 }]);
     });
 
-    it('should track changes to nested objects correctly', () => {
+    it('should track changes to nested objects correctly', async () => {
       const itemsCallback = vi.fn();
 
       actor.addItem('item-1', 100);
 
-      bus.on('items', itemsCallback);
+      await flushAsync();
+
+      bus.on('__state_partial', (payload: unknown) => {
+        const partial = payload as Partial<TestState>;
+        if (partial.items !== undefined) {
+          itemsCallback(partial.items);
+        }
+      });
 
       actor.updateItemValue('item-1', 200);
 
+      await flushAsync();
       expect(itemsCallback).toHaveBeenCalledWith([{ id: 'item-1', value: 200 }]);
     });
 
     it('should handle no-op setState calls', () => {
-      const countCallback = vi.fn();
+      const partialCallback = vi.fn();
 
-      bus.on('count', countCallback);
+      bus.on('__state_partial', partialCallback);
 
       actor.callSetState(() => {
         // No changes
       });
 
-      expect(countCallback).not.toHaveBeenCalled();
+      expect(partialCallback).not.toHaveBeenCalled();
     });
   });
 
   describe('action handling', () => {
-    it('should execute actions via action event', () => {
+    it('should execute actions via action event', async () => {
       const countEvents: number[] = [];
-      bus.on('count', (count) => { countEvents.push(count); });
+      bus.on('__state_partial', (payload: unknown) => {
+        const partial = payload as Partial<TestState>;
+        if (partial.count !== undefined) {
+          countEvents.push(partial.count);
+        }
+      });
 
       bus.emit('increment', []);
 
+      await flushAsync();
       expect(countEvents[0]).toBe(1);
     });
 
-    it('should execute actions with arguments', () => {
+    it('should execute actions with arguments', async () => {
       const nameEvents: string[] = [];
-      bus.on('name', (name) => { nameEvents.push(name); });
+      bus.on('__state_partial', (payload: unknown) => {
+        const partial = payload as Partial<TestState>;
+        if (partial.name !== undefined) {
+          nameEvents.push(partial.name);
+        }
+      });
 
       bus.emit('setName', ['new-name']);
 
+      await flushAsync();
       expect(nameEvents[0]).toBe('new-name');
     });
 
-    it('should execute actions with multiple arguments', () => {
+    it('should execute actions with multiple arguments', async () => {
       const itemsEvents: any[] = [];
-      bus.on('items', (items) => { itemsEvents.push(items); });
+      bus.on('__state_partial', (payload: unknown) => {
+        const partial = payload as Partial<TestState>;
+        if (partial.items !== undefined) {
+          itemsEvents.push(partial.items);
+        }
+      });
 
       bus.emit('addItem', ['item-1', 42]);
 
+      await flushAsync();
       expect(itemsEvents[0]).toHaveLength(1);
       expect(itemsEvents[0][0]).toEqual({ id: 'item-1', value: 42 });
     });

@@ -357,11 +357,13 @@ export default class ActorSystem {
         // Subscribe to the specific event on the dependency
         // Event name comes from decorator metadata and must be cast since depClient type is generic
         (depClient as any).on(eventName, (payload: unknown) => {
-          // Execute the effect method on the actor (dynamic method access)
-          const actor = actorInstance as unknown as Record<string, unknown>;
-          if (typeof actor[methodName] === 'function') {
-            (actor[methodName] as (payload: unknown) => void)(payload);
-          }
+          // Enqueue effect invocation to mailbox for sequential processing
+          actorInstance.mailbox.enqueue(() => {
+            const actor = actorInstance as unknown as Record<string, unknown>;
+            if (typeof actor[methodName] === 'function') {
+              (actor[methodName] as (payload: unknown) => void)(payload);
+            }
+          });
         });
       }
     }

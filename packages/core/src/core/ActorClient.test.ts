@@ -64,13 +64,13 @@ describe('ActorClient', () => {
     });
 
     it('should update state when receiving state property events', () => {
-      bus.emit('count', 10);
+      bus.emit('__state_partial', { count: 10 });
       expect(client.state.count).toBe(10);
     });
 
     it('should update multiple state properties independently', () => {
-      bus.emit('count', 20);
-      bus.emit('name', 'updated');
+      bus.emit('__state_partial', { count: 20 });
+      bus.emit('__state_partial', { name: 'updated' });
 
       expect(client.state.count).toBe(20);
       expect(client.state.name).toBe('updated');
@@ -82,7 +82,7 @@ describe('ActorClient', () => {
       const callback = vi.fn();
       client.on('count', callback);
 
-      bus.emit('count', 42);
+      bus.emit('__state_partial', { count: 42 });
 
       expect(callback).toHaveBeenCalledWith(42);
     });
@@ -119,7 +119,7 @@ describe('ActorClient', () => {
       client.on('count', callback);
       client.off('count', callback);
 
-      bus.emit('count', 42);
+      bus.emit('__state_partial', { count: 42 });
 
       expect(callback).not.toHaveBeenCalled();
     });
@@ -138,8 +138,8 @@ describe('ActorClient', () => {
       client.dispose();
 
       // Emit events after disposal - none should trigger
-      bus.emit('count', 42);
-      bus.emit('name', 'updated');
+      bus.emit('__state_partial', { count: 42 });
+      bus.emit('__state_partial', { name: 'updated' });
       bus.emit('incremented', { oldValue: 0, newValue: 1 });
 
       expect(countCallback).not.toHaveBeenCalled();
@@ -156,7 +156,7 @@ describe('ActorClient', () => {
       client.dispose();
 
       // State update should not trigger after disposal
-      bus.emit('count', 999);
+      bus.emit('__state_partial', { count: 999 });
 
       expect(countCallback).not.toHaveBeenCalled();
     });
@@ -226,8 +226,8 @@ describe('ActorClient', () => {
       expect(client.state.name).toBe('initial');
 
       // Emit updates
-      bus.emit('count', 100);
-      bus.emit('name', 'synchronized');
+      bus.emit('__state_partial', { count: 100 });
+      bus.emit('__state_partial', { name: 'synchronized' });
 
       // State should be updated
       expect(client.state.count).toBe(100);
@@ -241,8 +241,8 @@ describe('ActorClient', () => {
 
       // Simulate state changes arriving BEFORE the __state response
       // This tests the race condition fix
-      newBus.emit('count', 42);
-      newBus.emit('name', 'updated');
+      newBus.emit('__state_partial', { count: 42 });
+      newBus.emit('__state_partial', { name: 'updated' });
 
       // Now the __state response arrives
       newBus.emit('__state', { count: 10, name: 'hydrated' });
@@ -252,7 +252,7 @@ describe('ActorClient', () => {
       expect(newClient.state.name).toBe('hydrated');
 
       // But subsequent updates should still work
-      newBus.emit('count', 99);
+      newBus.emit('__state_partial', { count: 99 });
       expect(newClient.state.count).toBe(99);
     });
 
@@ -261,17 +261,17 @@ describe('ActorClient', () => {
       const newClient = new ActorClient<TestActor>(newBus, { count: 0, name: 'initial' });
 
       // Rapid changes before hydration
-      newBus.emit('count', 1);
-      newBus.emit('count', 2);
-      newBus.emit('count', 3);
+      newBus.emit('__state_partial', { count: 1 });
+      newBus.emit('__state_partial', { count: 2 });
+      newBus.emit('__state_partial', { count: 3 });
 
       // Hydration arrives
       newBus.emit('__state', { count: 100, name: 'hydrated' });
 
       // More rapid changes after hydration
-      newBus.emit('count', 101);
-      newBus.emit('count', 102);
-      newBus.emit('name', 'final');
+      newBus.emit('__state_partial', { count: 101 });
+      newBus.emit('__state_partial', { count: 102 });
+      newBus.emit('__state_partial', { name: 'final' });
 
       // Should have the latest values
       expect(newClient.state.count).toBe(102);

@@ -111,7 +111,7 @@ export function App() {
             id="throughput"
             type="range"
             min="1"
-            max="1000"
+            max="100"
             value={generator.state.throughput()}
             onInput={(e) => handleThroughputChange(parseInt(e.currentTarget.value))}
           />

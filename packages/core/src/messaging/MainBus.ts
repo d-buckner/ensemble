@@ -42,19 +42,13 @@ export class MainBus extends ThreadBus {
     this.mainMessageMonitor = monitor;
   }
 
-  private determineEventType(actorId: string, eventName: string): EventType {
-    // System events start with __
-    if (eventName.startsWith('__')) {
-      return 'system';
+  private determineEventType(eventName: string): EventType {
+    if (eventName === PROTOCOL_EVENTS.STATE_PARTIAL) {
+      return 'state';
     }
 
-    // Check if eventName is a state property
-    const actor = this.actorSystem.get(actorId);
-    if (actor) {
-      const initialState = actor.actor.initialState;
-      if (initialState && eventName in initialState) {
-        return 'state';
-      }
+    if (eventName in PROTOCOL_EVENTS) {
+      return 'system';
     }
 
     // Everything else is a custom event
@@ -69,7 +63,7 @@ export class MainBus extends ThreadBus {
     const targets = actor?.dependents.map(t => t.id) || [];
 
     // Determine event type
-    const eventType = this.determineEventType(actorId, eventName);
+    const eventType = this.determineEventType(eventName);
 
     this.mainMessageMonitor({
       actorId,

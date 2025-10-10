@@ -1,3 +1,5 @@
+import { produce, type Draft } from 'immer';
+import EventEmitter from '../messaging/EventEmitter';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import type { Actor, StateOf, EventsOf } from './Actor';
 import type { IActorBus } from '../messaging/ActorBus';
@@ -13,6 +15,9 @@ export type ActionsOf<TActor> = {
     : never;
 };
 
+// Helper types to reduce repetition in ActorClient
+type ClientAllEvents<TActor> = AllEvents<StateOf<TActor>, EventsOf<TActor>>;
+
 /**
  * ActorClient provides type-safe access to an actor's state and events.
  * The generic parameter TActor should be the concrete Actor class type,
@@ -21,14 +26,14 @@ export type ActionsOf<TActor> = {
 export interface IActorClient<TActor extends Actor<any, any>> {
   readonly state: StateOf<TActor>;
 
-  on<K extends keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>>(
+  on<K extends keyof ClientAllEvents<TActor>>(
     eventName: K,
-    callback: TypedListener<AllEvents<StateOf<TActor>, EventsOf<TActor>>[K]>
+    callback: TypedListener<ClientAllEvents<TActor>[K]>
   ): void;
 
-  off<K extends keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>>(
+  off<K extends keyof ClientAllEvents<TActor>>(
     eventName: K,
-    callback: TypedListener<AllEvents<StateOf<TActor>, EventsOf<TActor>>[K]>
+    callback: TypedListener<ClientAllEvents<TActor>[K]>
   ): void;
 
   dispose(): void;
@@ -42,19 +47,20 @@ export interface IActorClient<TActor extends Actor<any, any>> {
  */
 export class ActorClient<TActor extends Actor<any, any>> implements IActorClient<TActor> {
   private _state: StateOf<TActor>;
-  private bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>;
-  private listeners: Map<string, Set<TypedListener<any>>> = new Map();
+  private bus: IActorBus<ClientAllEvents<TActor>>;
+  private stateListeners: EventEmitter<StateOf<TActor>> = new EventEmitter();
+  private eventListeners: EventEmitter<ClientAllEvents<TActor>> = new EventEmitter();
   public readonly actions: ActionsOf<TActor>;
   private stateHydrationCallback?: TypedListener<StateOf<TActor>>;
-  private isSubscribedToStateUpdates = false;
 
   constructor(
-    bus: IActorBus<AllEvents<StateOf<TActor>, EventsOf<TActor>>>,
+    bus: IActorBus<ClientAllEvents<TActor>>,
     initialState: StateOf<TActor>
   ) {
     this.bus = bus;
     this._state = initialState;
     this.actions = this.createActionProxy();
+    this.onStatePartial = this.onStatePartial.bind(this);
     this.requestStateHydration();
   }
 
@@ -62,77 +68,75 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
     return this._state;
   }
 
-  on<K extends keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>>(
+  on<K extends keyof ClientAllEvents<TActor>>(
     eventName: K,
-    callback: TypedListener<AllEvents<StateOf<TActor>, EventsOf<TActor>>[K]>
+    callback: TypedListener<ClientAllEvents<TActor>[K]>
   ): void {
+    // State property subscriptions: store for dispatching when __state_partial arrives
+    if (eventName in this._state) {
+      this.stateListeners.on(eventName, callback);
+      return;
+    }
+
+    // Custom/protocol event subscriptions: subscribe to bus and track for cleanup
     this.bus.on(eventName, callback);
-    this.trackListener(eventName as string, callback);
+    this.eventListeners.on(eventName, callback);
   }
 
-  off<K extends keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>>(
+  off<K extends keyof ClientAllEvents<TActor>>(
     eventName: K,
-    callback: TypedListener<AllEvents<StateOf<TActor>, EventsOf<TActor>>[K]>
+    callback: TypedListener<ClientAllEvents<TActor>[K]>
   ): void {
+    // State property listener: remove from state listeners map
+    if (eventName in this._state) {
+      this.stateListeners.off(eventName, callback);
+      return;
+    }
+
+    // Custom/protocol event listener: unsubscribe from bus and remove from event listeners map
     this.bus.off(eventName, callback);
-
-    // Remove from tracking
-    const key = eventName as string;
-    const listeners = this.listeners.get(key);
-    if (listeners) {
-      listeners.delete(callback);
-      if (listeners.size === 0) {
-        this.listeners.delete(key);
-      }
-    }
-  }
-
-  /**
-   * Track a listener for cleanup
-   */
-  private trackListener(key: string, callback: TypedListener<any>): void {
-    if (!this.listeners.has(key)) {
-      this.listeners.set(key, new Set());
-    }
-    this.listeners.get(key)!.add(callback);
+    this.eventListeners.off(eventName, callback);
   }
 
   /**
    * Dispose of this client and cleanup all event listeners
    */
   dispose(): void {
-    // Unsubscribe all user listeners
-    for (const [eventName, callbacks] of this.listeners.entries()) {
-      for (const callback of callbacks) {
-        this.bus.off(eventName as any, callback);
-      }
-    }
-    this.listeners.clear();
+    // Unsubscribe custom/protocol event listeners from bus
+    this.eventListeners.forEachListener((eventName, callback) => {
+      this.bus.off(eventName as keyof ClientAllEvents<TActor>, callback);
+    });
+
+    // Clear all listener maps
+    this.stateListeners.dispose();
+    this.eventListeners.dispose();
 
     // Unsubscribe protocol event listeners
     if (this.stateHydrationCallback) {
-      this.bus.off(PROTOCOL_EVENTS.STATE as any, this.stateHydrationCallback);
+      this.bus.off(PROTOCOL_EVENTS.STATE as keyof ClientAllEvents<TActor>, this.stateHydrationCallback);
       this.stateHydrationCallback = undefined;
+    }
+
+    this.bus.off(PROTOCOL_EVENTS.STATE_PARTIAL as keyof ClientAllEvents<TActor>, this.onStatePartial);
+  }
+
+  private onStatePartial(partial: Partial<StateOf<TActor>>): void {
+    // Update local state cache with all changed properties using Immer
+    this._state = produce(this._state, (draft: Draft<StateOf<TActor>>) => {
+      Object.assign(draft, partial);
+    }) as StateOf<TActor>;
+
+    // Dispatch to individual property listeners
+    for (const key in partial) {
+      this.stateListeners.emit(key, partial[key]);
     }
   }
 
   /**
-   * Subscribe to all state property events to keep local cache updated
-   * Uses current state to ensure all properties (including optional) are subscribed
+   * Subscribe to batched state updates to keep local cache updated
    */
   private subscribeToStateUpdates(): void {
-    // Subscribe to each state property key
-    for (const key in this._state) {
-      const callback = (value: any) => {
-        // Type-safe state update via index signature
-        (this._state as Record<string, unknown>)[key] = value;
-      };
-
-      this.bus.on(key as keyof AllEvents<StateOf<TActor>, EventsOf<TActor>>, callback);
-      this.trackListener(key, callback);
-    }
-
-    this.isSubscribedToStateUpdates = true;
+    this.bus.on(PROTOCOL_EVENTS.STATE_PARTIAL as keyof ClientAllEvents<TActor>, this.onStatePartial);
   }
 
   /**
@@ -147,10 +151,10 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
     this.stateHydrationCallback = (state: StateOf<TActor>) => {
       this.hydrateState(state);
     };
-    this.bus.on(PROTOCOL_EVENTS.STATE as any, this.stateHydrationCallback);
+    this.bus.on(PROTOCOL_EVENTS.STATE as keyof ClientAllEvents<TActor>, this.stateHydrationCallback);
 
     // Request state from actor
-    this.bus.emit(PROTOCOL_EVENTS.STATE_REQUEST as any, undefined);
+    this.bus.emit(PROTOCOL_EVENTS.STATE_REQUEST as keyof ClientAllEvents<TActor>, undefined);
   }
 
   /**
@@ -160,14 +164,8 @@ export class ActorClient<TActor extends Actor<any, any>> implements IActorClient
   hydrateState(state: StateOf<TActor>): void {
     this._state = state;
 
-    // Subscribe to state updates (idempotent - only subscribes once)
-    if (!this.isSubscribedToStateUpdates) {
-      this.subscribeToStateUpdates();
-    }
-
     // Emit __hydrated event to notify consumers (like React hooks) that state is ready
-    // Consumers can then subscribe to individual state properties
-    this.bus.emit(PROTOCOL_EVENTS.HYDRATED as any, state);
+    this.bus.emit(PROTOCOL_EVENTS.HYDRATED as keyof ClientAllEvents<TActor>, state);
   }
 
   /**

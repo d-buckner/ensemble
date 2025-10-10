@@ -1,6 +1,7 @@
-import { produceWithPatches, enablePatches, type Draft } from 'immer';
+import { produceWithPatches, enablePatches, type Draft, produce } from 'immer';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import { getActionMetadata } from './decorators';
+import { Mailbox } from './Mailbox';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { AllEvents } from '../messaging/types';
 
@@ -41,17 +42,19 @@ export type StateShape<T> = {
  * Used to properly type actor registries and ensure initialState is present.
  */
 export interface ActorConstructor<T extends Actor = Actor> {
-  new (...args: any[]): T;
+  new(...args: any[]): T;
   readonly initialState: StateShape<StateOf<T>>;
 }
 
 export abstract class Actor<
-  TState = {},
-  TEvents = {}
+  TState = any,
+  TEvents = any
 > {
   public bus!: IActorBus<AllEvents<TState, TEvents>>;
   private _state: TState;
   private _metadata!: ActorMetadata;
+  public readonly mailbox = new Mailbox();
+  private stateUpdateQueue: Array<(draft: Draft<TState>) => void> = [];
 
   // Dependency injection - set by ActorSystem
   protected declare deps?: Record<string, any>;
@@ -72,7 +75,8 @@ export abstract class Actor<
   constructor(initialState: StateShape<TState>) {
     // Deep copy initialState to ensure each instance has its own state object
     // This prevents state from being shared across multiple actor instances
-    this._state = structuredClone(initialState) as TState;
+    this._state = produce(initialState, () => { }) as TState;
+    this.updateStateBatch = this.updateStateBatch.bind(this);
   }
 
   // Framework injection (called after construction)
@@ -82,22 +86,24 @@ export abstract class Actor<
 
     // Subscribe to action method invocations
     // Each @action decorated method becomes an event listener
-    const actor = this as unknown as Record<string, unknown>;
     const actionMetadata = getActionMetadata(this.constructor);
 
-    for (const { methodName } of actionMetadata) {
-      if (typeof actor[methodName] === 'function') {
+    for (const metadataEntry of actionMetadata) {
+      const methodName = metadataEntry.methodName as keyof this;
+
+      if (typeof this[methodName] === 'function') {
         // Action methods must be declared in TEvents interface with their parameter tuple types
         // At runtime, action invocations always pass argument arrays, but TypeScript can't
         // verify this statically since TEvents may mix arrays and objects
-        this.bus.on(methodName as keyof TEvents, ((args: unknown[]) => {
-          // Invoke the action method with the args array
-          (actor[methodName] as (...args: unknown[]) => unknown)(...(args || []));
+        this.bus.on(methodName as Exclude<keyof TEvents, symbol>, ((args: unknown[]) => {
+          // Enqueue action invocation to mailbox for sequential processing
+          this.mailbox.enqueue(() => (this[methodName] as (...args: unknown[]) => void)(...args));
         }) as any);
       }
     }
 
     // Subscribe to state hydration requests from ActorClients
+    // State requests are NOT queued - they respond immediately (TODO: Lets re-assess)
     this.bus.on(PROTOCOL_EVENTS.STATE_REQUEST as any, () => {
       this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
     });
@@ -105,7 +111,23 @@ export abstract class Actor<
 
   // State transition with Immer draft syntax
   protected setState(updater: (draft: Draft<TState>) => void): void {
-    const [nextState, patches] = produceWithPatches(this._state, updater);
+    this.stateUpdateQueue.push(updater);
+
+    if (this.stateUpdateQueue.length === 1) {
+      queueMicrotask(this.updateStateBatch);
+    }
+  }
+
+  private updateStateBatch() {
+    const batchUpdater = (draft: Draft<TState>) => {
+      this.stateUpdateQueue.forEach(updater => {
+        updater(draft);
+      });
+
+      this.stateUpdateQueue = [];
+    };
+
+    const [nextState, patches] = produceWithPatches(this._state, batchUpdater);
 
     if (nextState === this._state) {
       return; // No changes (Immer returns same reference if no mutations)
@@ -113,30 +135,18 @@ export abstract class Actor<
 
     this._state = nextState;
 
-    // Extract top-level properties from patches
-    const changedProps = new Set<keyof TState>();
+    // Build batched partial state update
+    const partial: Partial<TState> = {};
     patches.forEach(patch => {
       // patch.path is like ['items', 0, 'name'] or ['filter']
       // We only emit events for top-level properties
       if (patch.path.length > 0) {
-        changedProps.add(patch.path[0] as keyof TState);
+        const key = patch.path[0] as keyof TState;
+        partial[key] = this._state[key];
       }
     });
 
-    // Emit events ONLY for changed top-level properties
-    changedProps.forEach(prop => {
-      // Type-safe: prop is keyof TState, which is a subset of AllEvents keys
-      this.emitStateChange(prop, this._state[prop]);
-    });
-  }
-
-  // Internal helper for state change events
-  private emitStateChange<K extends keyof TState>(
-    eventName: K,
-    payload: TState[K]
-  ): void {
-    // State keys are strings/numbers (no symbols in serializable state)
-    this.bus.emit(eventName as string | number, payload);
+    this.bus.emit(PROTOCOL_EVENTS.STATE_PARTIAL, partial);
   }
 
   // Event emission

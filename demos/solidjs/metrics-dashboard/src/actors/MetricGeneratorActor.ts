@@ -67,16 +67,16 @@ export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGene
     batchesGenerated: 0,
     metricsGenerated: 0,
     batchSize: 1,
-    batchInterval: 1, // Calculated: (1 × 1000) / 1000 = 1ms
-    throughput: 1000 // Default 1000 metrics/sec
+    batchInterval: 10, // Calculated: (1 × 1000) / 100 = 10ms
+    throughput: 100 // Default 100 metrics/sec
   };
 
   private readonly endpoints = ['/api/users', '/api/orders', '/api/products', '/api/auth', '/api/analytics'];
   private readonly queries = ['SELECT * FROM users', 'SELECT * FROM orders', 'UPDATE inventory', 'INSERT INTO logs'];
   private intervalId: number | null = null;
   private currentBatchSize = 1; // Cached batch size for interval callback
-  private currentBatchInterval = 1; // Cached interval for interval callback
-  private currentThroughput = 1000; // Cached throughput for calculations
+  private currentBatchInterval = 10; // Cached interval for interval callback
+  private currentThroughput = 100; // Cached throughput for calculations
 
   // Simplex noise generators for smooth, organic trends
   private cpuNoise = createNoise2D();
@@ -155,7 +155,7 @@ export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGene
 
   @action
   setThroughput(throughput: number): void {
-    const clampedThroughput = Math.max(1, Math.min(10000, Math.floor(throughput)));
+    const clampedThroughput = Math.max(1, Math.min(100, Math.floor(throughput)));
     this.currentThroughput = clampedThroughput;
 
     // Recalculate interval based on current batch size
