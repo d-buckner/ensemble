@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import Queue from './Queue';
 
+
 describe('Queue', () => {
   describe('enqueue and dequeue', () => {
     it('should enqueue and dequeue in FIFO order', () => {

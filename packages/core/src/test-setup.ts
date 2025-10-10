@@ -14,7 +14,7 @@ async function flushAsync(): Promise<void> {
 
 // Make helper globally available
 declare global {
-  // eslint-disable-next-line no-var
+   
   var flushAsync: () => Promise<void>;
 }
 

@@ -93,11 +93,16 @@ export class MainBus extends ThreadBus {
     const { threadId } = actor;
 
     // If actor is on main thread, local listeners already handled it
+    // For main→main: pass by reference (no serialization overhead)
+    // Freeze in dev mode to catch mutation bugs
     if (threadId === MAIN_THREAD_ID) {
+      if (process.env.NODE_ENV !== 'production') {
+        Object.freeze(payload);
+      }
       return;
     }
 
-    // Send to worker thread
+    // Send to worker thread: must serialize
     const worker = this.workerRegistry.get(threadId);
     if (!worker) {
       Logger.error(`MainBus: Worker not found for threadId ${threadId}`);
@@ -112,6 +117,35 @@ export class MainBus extends ThreadBus {
   }
 
   /**
+   * Forward event to dependent actors on worker threads
+   */
+  private forwardToWorkerDependents(actorId: string, eventName: string, payload: unknown): void {
+    const actor = this.actorSystem.get(actorId);
+    if (!actor || !actor.dependents) {
+      Logger.debug(`[MainBus] Actor ${actorId} has no dependents or not found in ActorSystem`);
+      return;
+    }
+
+    Logger.debug(`[MainBus] Actor ${actorId} has ${actor.dependents.length} dependents:`, actor.dependents.map(d => `${d.id}@${this.actorSystem.get(d.id)?.threadId}`));
+
+    for (const dependentToken of actor.dependents) {
+      const dependent = this.actorSystem.get(dependentToken.id);
+      if (!dependent) continue;
+      if (dependent.threadId === MAIN_THREAD_ID) continue;
+
+      Logger.debug(`[MainBus] Forwarding event ${eventName} from ${actorId} to dependent ${dependentToken.id} on ${dependent.threadId}`);
+
+      const worker = this.workerRegistry.get(dependent.threadId);
+      if (!worker) {
+        Logger.error(`[MainBus] No worker found for threadId ${dependent.threadId}`);
+        continue;
+      }
+
+      worker.postMessage(pack({ actorId, eventName, payload }));
+    }
+  }
+
+  /**
    * Handle incoming messages from workers
    */
   handleWorkerMessage(data: ArrayBuffer | Uint8Array): void {
@@ -121,12 +155,12 @@ export class MainBus extends ThreadBus {
       // Special handling for __state messages - route to ActorClient
       if (eventName === PROTOCOL_EVENTS.STATE) {
         const client = this.actorSystem.getClientByActorId(actorId);
-        if (client) {
-          client.hydrateState(payload);
+        if (!client) {
+          Logger.warn(`MainBus: No client found for actor ${actorId} to hydrate state`);
           return;
         }
 
-        Logger.warn(`MainBus: No client found for actor ${actorId} to hydrate state`);
+        client.hydrateState(payload);
         return;
       }
 
@@ -139,24 +173,7 @@ export class MainBus extends ThreadBus {
       this.receive(actorId, eventName, payload);
 
       // Forward to dependent actors on other workers
-      const actor = this.actorSystem.get(actorId);
-      if (actor && actor.dependents) {
-        Logger.debug(`[MainBus] Actor ${actorId} has ${actor.dependents.length} dependents:`, actor.dependents.map(d => `${d.id}@${this.actorSystem.get(d.id)?.threadId}`));
-        for (const dependentToken of actor.dependents) {
-          const dependent = this.actorSystem.get(dependentToken.id);
-          if (dependent && dependent.threadId !== MAIN_THREAD_ID) {
-            Logger.debug(`[MainBus] Forwarding event ${eventName} from ${actorId} to dependent ${dependentToken.id} on ${dependent.threadId}`);
-            const worker = this.workerRegistry.get(dependent.threadId);
-            if (worker) {
-              worker.postMessage(pack({ actorId, eventName, payload }));
-            } else {
-              Logger.error(`[MainBus] No worker found for threadId ${dependent.threadId}`);
-            }
-          }
-        }
-      } else {
-        Logger.debug(`[MainBus] Actor ${actorId} has no dependents or not found in ActorSystem`);
-      }
+      this.forwardToWorkerDependents(actorId, eventName, payload);
     } catch (error) {
       Logger.error('MainBus: Failed to handle worker message', error);
     }

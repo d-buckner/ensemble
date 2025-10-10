@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Mailbox } from './Mailbox';
 
+
 describe('Mailbox', () => {
 
   describe('FIFO ordering', () => {

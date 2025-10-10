@@ -1,9 +1,10 @@
-import { produceWithPatches, enablePatches, type Draft, produce } from 'immer';
+import { produceWithPatches, enablePatches, type Draft } from 'immer';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import { getActionMetadata } from './decorators';
 import { Mailbox } from './Mailbox';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { AllEvents } from '../messaging/types';
+import type { DeepReadonly } from '../utils/types';
 
 // Enable Immer patches plugin
 enablePatches();
@@ -75,7 +76,7 @@ export abstract class Actor<
   constructor(initialState: StateShape<TState>) {
     // Deep copy initialState to ensure each instance has its own state object
     // This prevents state from being shared across multiple actor instances
-    this._state = produce(initialState, () => { }) as TState;
+    this._state = structuredClone(initialState) as TState;
     this.updateStateBatch = this.updateStateBatch.bind(this);
   }
 
@@ -103,9 +104,11 @@ export abstract class Actor<
     }
 
     // Subscribe to state hydration requests from ActorClients
-    // State requests are NOT queued - they respond immediately (TODO: Lets re-assess)
+    // State requests are queued to ensure consistency with in-progress state mutations
     this.bus.on(PROTOCOL_EVENTS.STATE_REQUEST as any, () => {
-      this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
+      this.mailbox.enqueue(() => {
+        this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
+      });
     });
   }
 
@@ -152,8 +155,13 @@ export abstract class Actor<
   // Event emission
   protected emit<K extends keyof TEvents>(
     eventName: K,
-    payload: TEvents[K]
+    payload: DeepReadonly<TEvents[K]>
   ): void {
+    // Freeze payload in development to catch mutation bugs
+    if (process.env.NODE_ENV !== 'production') {
+      Object.freeze(payload);
+    }
+
     // Event names are strings/numbers (no symbols in serializable events)
     this.bus.emit(eventName as string | number, payload);
   }

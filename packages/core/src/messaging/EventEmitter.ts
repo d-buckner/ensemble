@@ -30,7 +30,12 @@ export default class EventEmitter<TEventMap> {
 
   emit<K extends keyof TEventMap>(eventName: K, payload: TEventMap[K]): void {
     const key = eventName as string;
-    this.listeners.get(key)?.forEach(callback => callback(payload as any));
+    const listeners = this.listeners.get(key);
+    if (listeners) {
+      for (const callback of listeners) {
+        callback(payload as any);
+      }
+    }
   }
 
   dispose(): void {

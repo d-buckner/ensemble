@@ -29,6 +29,7 @@ export default class Queue<T> {
 
     const node = this.head;
     this.head = node.next;
+    node.next = undefined;
 
     if (!this.head) {
       this.tail = undefined;
