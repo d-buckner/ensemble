@@ -34,11 +34,6 @@ interface Graph {
   [actorId: string]: Node;
 }
 
-
-export interface ActorSystemOptions {
-  workerOutput?: string;
-}
-
 // Type helper for dependency injection
 export type WithDeps<TDeps extends Record<string, ActorClient<any>>> = {
   deps: TDeps;
@@ -52,7 +47,7 @@ export default class ActorSystem {
   private clients: Map<symbol, ActorClient<any>> = new Map();
   private threadsToRegister: Set<string> = new Set();
 
-  constructor(_options: ActorSystemOptions = {}) {
+  constructor() {
     this.workerRegistry = new WorkerRegistry();
   }
 
@@ -358,12 +353,18 @@ export default class ActorSystem {
         // Event name comes from decorator metadata and must be cast since depClient type is generic
         (depClient as any).on(eventName, (payload: unknown) => {
           // Enqueue effect invocation to mailbox for sequential processing
-          actorInstance.mailbox.enqueue(() => {
-            const actor = actorInstance as unknown as Record<string, unknown>;
-            if (typeof actor[methodName] === 'function') {
-              (actor[methodName] as (payload: unknown) => void)(payload);
+          actorInstance.mailbox.enqueue(
+            () => {
+              const actor = actorInstance as unknown as Record<string, unknown>;
+              if (typeof actor[methodName] === 'function') {
+                (actor[methodName] as (payload: unknown) => void)(payload);
+              }
+            },
+            {
+              actorId: actorInstance.metadata.id,
+              method: methodName,
             }
-          });
+          );
         });
       }
     }

@@ -36,6 +36,14 @@ export function App() {
   animationFrameId = requestAnimationFrame(measureFPS);
   onCleanup(() => cancelAnimationFrame(animationFrameId));
 
+  // Pause/resume generation based on page visibility
+  const handleVisibilityChange = () => {
+    generator.actions.setPaused(document.hidden);
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  onCleanup(() => document.removeEventListener('visibilitychange', handleVisibilityChange));
+
   // Auto-start streaming on mount
   generator.actions.start();
 

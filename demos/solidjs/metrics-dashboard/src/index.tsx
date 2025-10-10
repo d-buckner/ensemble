@@ -11,9 +11,7 @@ import { GeneratorToken, StatisticsToken, AnomalyDetectionToken, DashboardToken 
 
 
 async function main() {
-  const system = new ActorSystem({
-    workerOutput: 'assets'
-  });
+  const system = new ActorSystem();
 
   // Register actors in dependency order
   system.register({

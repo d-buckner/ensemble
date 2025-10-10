@@ -61,6 +61,7 @@ const THREAD_COLORS = {
 
 export function MessageFlowViz() {
   let canvasRef: HTMLCanvasElement | undefined;
+  let containerRef: HTMLDivElement | undefined;
   let app: Application | null = null;
   let graphContainer: Container | null = null;
   let particleContainer: Container | null = null;
@@ -70,6 +71,14 @@ export function MessageFlowViz() {
   // Build graph from ActorSystem
   let actorNodes: ActorNode[] = [];
   let edges: Edge[] = [];
+
+  const CANVAS_ASPECT_RATIO = 16 / 9;
+  const MAX_WIDTH = 800;
+  const MAX_HEIGHT = 450;
+  const DEFAULT_WIDTH = 800;
+  const DEFAULT_HEIGHT = 450;
+
+  let currentScale = 1;
 
   const buildGraphFromSystem = (system: any): void => {
     const actorIds = system.getAllActorIds();
@@ -106,15 +115,23 @@ export function MessageFlowViz() {
     edges = graphEdges;
   };
 
+  const getScaledPosition = (x: number, y: number): { x: number; y: number } => {
+    return {
+      x: x * currentScale,
+      y: y * currentScale,
+    };
+  };
+
   const getNodePosition = (actorId: string): NodePosition | null => {
     const node = actorNodes.find(n => n.id === actorId);
-    return node ? node.position : null;
+    return node ? getScaledPosition(node.position.x, node.position.y) : null;
   };
 
   const drawGraph = (): void => {
     if (!graphContainer) return;
 
-    const container = graphContainer;
+    // Clear existing graph
+    graphContainer.removeChildren();
 
     // Draw edges
     edges.forEach(edge => {
@@ -123,62 +140,70 @@ export function MessageFlowViz() {
 
       if (!sourceNode || !targetNode) return;
 
-      const line = new Graphics();
-      line.moveTo(sourceNode.position.x, sourceNode.position.y);
-      line.lineTo(targetNode.position.x, targetNode.position.y);
-      line.stroke({ width: 2, color: 0x333333, alpha: 0.6 });
+      const sourcePos = getScaledPosition(sourceNode.position.x, sourceNode.position.y);
+      const targetPos = getScaledPosition(targetNode.position.x, targetNode.position.y);
 
-      container.addChild(line);
+      const line = new Graphics();
+      line.moveTo(sourcePos.x, sourcePos.y);
+      line.lineTo(targetPos.x, targetPos.y);
+      line.stroke({ width: 2 * currentScale, color: 0x333333, alpha: 0.6 });
+
+      graphContainer.addChild(line);
     });
 
     // Draw nodes
     actorNodes.forEach(node => {
       const nodeGroup = new Container();
-      nodeGroup.x = node.position.x;
-      nodeGroup.y = node.position.y;
+      const scaledPos = getScaledPosition(node.position.x, node.position.y);
+      nodeGroup.x = scaledPos.x;
+      nodeGroup.y = scaledPos.y;
+
+      const scaledNodeWidth = NODE_WIDTH * currentScale;
+      const scaledNodeHeight = NODE_HEIGHT * currentScale;
+      const scaledRadius = NODE_RADIUS * currentScale;
 
       // Node box
       const box = new Graphics();
-      box.roundRect(-NODE_WIDTH / 2, -NODE_HEIGHT / 2, NODE_WIDTH, NODE_HEIGHT, NODE_RADIUS);
+      box.roundRect(-scaledNodeWidth / 2, -scaledNodeHeight / 2, scaledNodeWidth, scaledNodeHeight, scaledRadius);
       box.fill({ color: 0x1a1a1a });
-      box.stroke({ width: 2, color: THREAD_COLORS[node.threadType] });
+      box.stroke({ width: 2 * currentScale, color: THREAD_COLORS[node.threadType] });
       nodeGroup.addChild(box);
 
       // Node label
       const nameText = new Text({
         text: node.name,
         style: {
-          fontSize: 14,
+          fontSize: 14 * currentScale,
           fontWeight: 'bold',
           fill: 0xe0e0e0,
           align: 'center',
         },
       });
       nameText.anchor.set(0.5, 0.5);
-      nameText.y = -8;
+      nameText.y = -8 * currentScale;
       nodeGroup.addChild(nameText);
 
       // Thread badge
       const threadText = new Text({
         text: node.thread.toUpperCase(),
         style: {
-          fontSize: 9,
+          fontSize: 9 * currentScale,
           fontWeight: 'bold',
           fill: 0xffffff,
           align: 'center',
         },
       });
       threadText.anchor.set(0.5, 0.5);
-      threadText.y = 12;
+      threadText.y = 12 * currentScale;
 
-      const badgeWidth = threadText.width + 12;
+      const badgeWidth = threadText.width + 12 * currentScale;
       const badge = new Graphics();
-      badge.roundRect(-badgeWidth / 2, 5, badgeWidth, 16, 4);
+      badge.roundRect(-badgeWidth / 2, 5 * currentScale, badgeWidth, 16 * currentScale, 4 * currentScale);
       badge.fill({ color: THREAD_COLORS[node.threadType] });
       nodeGroup.addChild(badge);
       nodeGroup.addChild(threadText);
 
-      container.addChild(nodeGroup);
+      graphContainer.addChild(nodeGroup);
     });
   };
 
@@ -198,7 +223,7 @@ export function MessageFlowViz() {
       // For actors with no downstream dependencies, create a visual pulse at the node
       const graphics = new Graphics();
 
-      graphics.circle(0, 0, 4);
+      graphics.circle(0, 0, 4 * currentScale);
       graphics.fill({ color, alpha: 0.9 });
 
       graphics.x = sourcePos.x;
@@ -230,7 +255,7 @@ export function MessageFlowViz() {
 
       const graphics = new Graphics();
 
-      graphics.circle(0, 0, 4);
+      graphics.circle(0, 0, 4 * currentScale);
       graphics.fill({ color, alpha: 0.9 });
 
       graphics.x = sourcePos.x;
@@ -319,20 +344,53 @@ export function MessageFlowViz() {
     };
   };
 
+  const getCanvasSize = (): { width: number; height: number } => {
+    if (!containerRef) return { width: MAX_WIDTH, height: MAX_HEIGHT };
+
+    const containerWidth = containerRef.clientWidth;
+    const calculatedWidth = Math.min(containerWidth, MAX_WIDTH);
+    const calculatedHeight = calculatedWidth / CANVAS_ASPECT_RATIO;
+
+    return {
+      width: calculatedWidth,
+      height: Math.min(calculatedHeight, MAX_HEIGHT),
+    };
+  };
+
+  const handleResize = (): void => {
+    if (!app || !canvasRef) return;
+
+    const { width, height } = getCanvasSize();
+
+    // Calculate new scale factor
+    currentScale = width / DEFAULT_WIDTH;
+
+    // Resize renderer
+    app.renderer.resize(width, height);
+
+    // Redraw graph with new scale
+    drawGraph();
+  };
+
   onMount(async () => {
-    if (!canvasRef) return;
+    if (!canvasRef || !containerRef) return;
 
     const system = createActorSystem();
 
     // Build graph from the actual ActorSystem
     buildGraphFromSystem(system);
 
+    const { width, height } = getCanvasSize();
+
+    // Calculate initial scale factor
+    currentScale = width / DEFAULT_WIDTH;
+
     // Create PixiJS application
     app = new Application();
     await app.init({
       canvas: canvasRef,
-      width: 800,
-      height: 450,
+      width,
+      height,
       backgroundColor: 0x0a0a0a,
       antialias: true,
       resolution: window.devicePixelRatio || 1,
@@ -347,7 +405,7 @@ export function MessageFlowViz() {
     graphContainer = new Container();
     app.stage.addChild(graphContainer);
 
-    // Draw the actor graph
+    // Draw the actor graph with proper scaling
     drawGraph();
 
     // Set up message monitor
@@ -357,9 +415,14 @@ export function MessageFlowViz() {
 
     // Start animation loop
     app.ticker.add(animate);
+
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
   });
 
   onCleanup(() => {
+    window.removeEventListener('resize', handleResize);
+
     if (app) {
       const system = createActorSystem();
       system.setMessageMonitor(undefined);
@@ -376,7 +439,7 @@ export function MessageFlowViz() {
   });
 
   return (
-    <div class="message-flow-viz">
+    <div class="message-flow-viz" ref={containerRef}>
       <canvas ref={canvasRef} />
       <div class="event-legend">
         <div class="legend-item">

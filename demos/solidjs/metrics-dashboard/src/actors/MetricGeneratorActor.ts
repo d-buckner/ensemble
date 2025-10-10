@@ -77,6 +77,7 @@ export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGene
   private currentBatchSize = 1; // Cached batch size for interval callback
   private currentBatchInterval = 10; // Cached interval for interval callback
   private currentThroughput = 100; // Cached throughput for calculations
+  private isPaused = false;
 
   // Simplex noise generators for smooth, organic trends
   private cpuNoise = createNoise2D();
@@ -175,9 +176,27 @@ export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGene
     }
   }
 
+  @action
+  setPaused(paused: boolean): void {
+    this.isPaused = paused;
+
+    if (paused) {
+      // Clear interval when pausing
+      if (this.intervalId !== null) {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
+      }
+    } else {
+      // Restart generation if we were generating before pause
+      if (this._state.isGenerating && this.intervalId === null) {
+        this.startBatchGeneration();
+      }
+    }
+  }
+
   private startBatchGeneration(): void {
     this.intervalId = setInterval(() => {
-      if (this.intervalId === null) return;
+      if (this.intervalId === null || this.isPaused) return;
 
       const batchStartTime = Date.now();
       const batch: RawMetrics[] = [];

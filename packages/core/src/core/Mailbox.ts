@@ -1,5 +1,15 @@
 import Queue from './Queue';
 
+
+/**
+ * Debug context for tracking message origins in development mode
+ */
+export interface MessageDebugContext {
+  actorId: string;
+  method: string;
+  enqueueStack?: string;
+}
+
 /**
  * Mailbox provides per-actor message queuing and sequential processing.
  *
@@ -30,9 +40,28 @@ export class Mailbox {
    * synchronously enqueued messages to be added before processing begins.
    *
    * @param handler - Synchronous function to execute
+   * @param debugContext - Optional debug context for enhanced error reporting (dev mode only)
    */
-  enqueue(handler: () => void): void {
-    this.queue.enqueue(handler);
+  enqueue(handler: () => void, debugContext?: MessageDebugContext): void {
+    // In development mode, capture stack trace and wrap handler to preserve error context
+    if (process.env.NODE_ENV !== 'production' && debugContext) {
+      const enqueueStack = new Error().stack;
+      const wrappedHandler = () => {
+        try {
+          handler();
+        } catch (error) {
+          if (error instanceof Error && error.stack && enqueueStack) {
+            // Append enqueue location to error stack for full context
+            error.stack += `\n\n--- Enqueued from (${debugContext.actorId}.${debugContext.method}) ---\n${enqueueStack}`;
+          }
+          throw error;
+        }
+      };
+      this.queue.enqueue(wrappedHandler);
+    } else {
+      this.queue.enqueue(handler);
+    }
+
     this.scheduleProcessing();
   }
 

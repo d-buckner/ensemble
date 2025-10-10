@@ -98,7 +98,13 @@ export abstract class Actor<
         // verify this statically since TEvents may mix arrays and objects
         this.bus.on(methodName as Exclude<keyof TEvents, symbol>, ((args: unknown[]) => {
           // Enqueue action invocation to mailbox for sequential processing
-          this.mailbox.enqueue(() => (this[methodName] as (...args: unknown[]) => void)(...args));
+          this.mailbox.enqueue(
+            () => (this[methodName] as (...args: unknown[]) => void)(...args),
+            {
+              actorId: this._metadata.id,
+              method: methodName as string,
+            }
+          );
         }) as any);
       }
     }
@@ -106,9 +112,15 @@ export abstract class Actor<
     // Subscribe to state hydration requests from ActorClients
     // State requests are queued to ensure consistency with in-progress state mutations
     this.bus.on(PROTOCOL_EVENTS.STATE_REQUEST as any, () => {
-      this.mailbox.enqueue(() => {
-        this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
-      });
+      this.mailbox.enqueue(
+        () => {
+          this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
+        },
+        {
+          actorId: this._metadata.id,
+          method: '__state_request',
+        }
+      );
     });
   }
 

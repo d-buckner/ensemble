@@ -243,4 +243,171 @@ describe('Mailbox', () => {
       expect(results).toEqual([0, 1, 2, 3, 4]);
     });
   });
+
+  describe('debug context (development mode)', () => {
+    it('should append enqueue stack trace to error in development mode', async () => {
+      const mailbox = new Mailbox();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const throwingHandler = () => {
+        throw new Error('Handler error');
+      };
+
+      mailbox.enqueue(throwingHandler, {
+        actorId: 'TestActor',
+        method: 'testMethod',
+      });
+
+      await flushAsync();
+
+      // Should have logged an error
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[Mailbox] Handler error:',
+        expect.any(Error)
+      );
+
+      // Get the error that was logged
+      const loggedError = consoleErrorSpy.mock.calls[0][1] as Error;
+
+      // Stack should contain both the original error location and enqueue location
+      expect(loggedError.message).toBe('Handler error');
+      expect(loggedError.stack).toContain('Handler error');
+      expect(loggedError.stack).toContain('--- Enqueued from (TestActor.testMethod) ---');
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should preserve original error when debug context provided', async () => {
+      const mailbox = new Mailbox();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const originalError = new Error('Original message');
+      originalError.name = 'CustomError';
+
+      mailbox.enqueue(
+        () => {
+          throw originalError;
+        },
+        {
+          actorId: 'MyActor',
+          method: 'myMethod',
+        }
+      );
+
+      await flushAsync();
+
+      // Should have logged the error
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      const loggedError = consoleErrorSpy.mock.calls[0][1] as Error;
+
+      // Should preserve original error properties
+      expect(loggedError).toBe(originalError);
+      expect(loggedError.name).toBe('CustomError');
+      expect(loggedError.message).toBe('Original message');
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should work without debug context (backward compatibility)', async () => {
+      const mailbox = new Mailbox();
+      const results: number[] = [];
+
+      mailbox.enqueue(() => results.push(1));
+      mailbox.enqueue(() => results.push(2), undefined);
+
+      await flushAsync();
+      expect(results).toEqual([1, 2]);
+    });
+
+    it('should handle non-Error throws gracefully with debug context', async () => {
+      const mailbox = new Mailbox();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      mailbox.enqueue(
+        () => {
+          throw 'string error';
+        },
+        {
+          actorId: 'TestActor',
+          method: 'testMethod',
+        }
+      );
+
+      await flushAsync();
+
+      // Should handle non-Error throws (stack won't be modified)
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[Mailbox] Handler error:', 'string error');
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should include actor and method info in multiple errors', async () => {
+      const mailbox = new Mailbox();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      mailbox.enqueue(
+        () => {
+          throw new Error('Error 1');
+        },
+        {
+          actorId: 'Actor1',
+          method: 'method1',
+        }
+      );
+
+      mailbox.enqueue(
+        () => {
+          throw new Error('Error 2');
+        },
+        {
+          actorId: 'Actor2',
+          method: 'method2',
+        }
+      );
+
+      await flushAsync();
+
+      // Should have logged both errors
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
+
+      // First error should have Actor1 context
+      const firstError = consoleErrorSpy.mock.calls[0][1] as Error;
+      expect(firstError.stack).toContain('--- Enqueued from (Actor1.method1) ---');
+
+      // Second error should have Actor2 context
+      const secondError = consoleErrorSpy.mock.calls[1][1] as Error;
+      expect(secondError.stack).toContain('--- Enqueued from (Actor2.method2) ---');
+
+      // Should continue processing after errors
+      expect(mailbox.length).toBe(0);
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should not interfere with normal error handling when no stack available', async () => {
+      const mailbox = new Mailbox();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const errorWithoutStack = new Error('No stack');
+      delete errorWithoutStack.stack;
+
+      mailbox.enqueue(
+        () => {
+          throw errorWithoutStack;
+        },
+        {
+          actorId: 'TestActor',
+          method: 'testMethod',
+        }
+      );
+
+      await flushAsync();
+
+      // Should still log the error, just without stack modification
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      const loggedError = consoleErrorSpy.mock.calls[0][1] as Error;
+      expect(loggedError).toBe(errorWithoutStack);
+      expect(loggedError.message).toBe('No stack');
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
 });

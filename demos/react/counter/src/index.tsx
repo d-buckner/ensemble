@@ -9,9 +9,7 @@ import { CounterToken } from './tokens';
 
 
 async function main() {
-  const system = new ActorSystem({
-    workerOutput: 'assets'
-  });
+  const system = new ActorSystem();
 
   system.register({
     token: CounterToken,

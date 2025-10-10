@@ -8,8 +8,14 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: #0a0a0a;
   color: #e0e0e0;
-  padding: 2rem;
+  padding: 1rem;
   line-height: 1.6;
+}
+
+@media (min-width: 768px) {
+  body {
+    padding: 2rem;
+  }
 }
 
 .app {
@@ -18,7 +24,7 @@ body {
 }
 
 .app-title {
-  font-size: 2.5rem;
+  font-size: 1.75rem;
   margin-bottom: 1rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
@@ -26,24 +32,45 @@ body {
   background-clip: text;
 }
 
+@media (min-width: 768px) {
+  .app-title {
+    font-size: 2.5rem;
+  }
+}
+
 .app-description {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: #888;
   line-height: 1.6;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   max-width: 900px;
+}
+
+@media (min-width: 768px) {
+  .app-description {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+  }
 }
 
 /* Controls */
 .controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
-  margin-bottom: 2rem;
-  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
   background: #1a1a1a;
   border-radius: 8px;
   border: 1px solid #333;
+}
+
+@media (min-width: 768px) {
+  .controls {
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
 }
 
 .btn {
@@ -84,7 +111,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-width: 200px;
+  min-width: 150px;
+  flex: 1;
+}
+
+@media (min-width: 768px) {
+  .batch-size-control {
+    min-width: 200px;
+    flex: 0 1 auto;
+  }
 }
 
 .batch-size-control label {
@@ -145,10 +180,21 @@ body {
 }
 
 .control-info {
-  margin-left: auto;
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   color: #888;
+  width: 100%;
+  justify-content: space-around;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .control-info {
+    margin-left: auto;
+    width: auto;
+    gap: 1.5rem;
+    font-size: 1rem;
+  }
 }
 
 /* Performance Section */
@@ -399,21 +445,34 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .message-flow-viz canvas {
   display: block;
+  width: 100% !important;
+  height: auto !important;
   max-width: 100%;
-  height: auto;
 }
 
 .event-legend {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 2rem;
-  padding: 1rem;
+  gap: 1rem;
+  padding: 0.75rem;
   background: #0a0a0a;
   border-top: 1px solid #222;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .event-legend {
+    gap: 2rem;
+    padding: 1rem;
+  }
 }
 
 .legend-item {
