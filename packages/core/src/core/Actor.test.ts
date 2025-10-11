@@ -81,12 +81,12 @@ describe('Actor', () => {
   beforeEach(() => {
     actor = new TestActor();
     bus = new MockBus<AllEvents<TestState, TestEvents>>();
-    actor.__init(bus, {
+    actor.__init({
       id: 'test-actor',
       name: 'TestActor',
       threadId: 'main',
       dependencies: [],
-    });
+    }, bus);
   });
 
   describe('initialization', () => {
@@ -94,12 +94,12 @@ describe('Actor', () => {
       const customActor = new TestActor({ count: 10, name: 'custom', items: [] });
       const customBus = new MockBus<AllEvents<TestState, TestEvents>>();
 
-      customActor.__init(customBus, {
+      customActor.__init({
         id: 'custom-actor',
         name: 'TestActor',
         threadId: 'main',
         dependencies: [],
-      });
+      }, customBus);
 
       // Verify by listening to state events when triggered
       const countEvents: number[] = [];
@@ -370,12 +370,12 @@ describe('Actor', () => {
       }
 
       const lifecycleActor = new LifecycleActor();
-      lifecycleActor.__init(bus, {
+      lifecycleActor.__init({
         id: 'lifecycle-actor',
         name: 'LifecycleActor',
         threadId: 'main',
         dependencies: [],
-      });
+      }, bus);
 
       // onInit is called by ActorSystem, not by __init
       // Access via any to bypass protected access for testing
@@ -402,12 +402,12 @@ describe('Actor', () => {
       }
 
       const lifecycleActor = new AsyncLifecycleActor();
-      lifecycleActor.__init(bus, {
+      lifecycleActor.__init({
         id: 'async-actor',
         name: 'AsyncLifecycleActor',
         threadId: 'main',
         dependencies: [],
-      });
+      }, bus);
 
       // Access via any to bypass protected access for testing
       const anyActor = lifecycleActor as unknown as { onInit?: () => void | Promise<void> };

@@ -3,7 +3,7 @@ import { Actor } from './core/Actor';
 import ActorSystem from './core/ActorSystem';
 import { createActorToken } from './core/ActorToken';
 import { action, effect } from './core/decorators';
-import type { ActorClient } from './core/ActorClient';
+import type { IActorClient } from './core/types';
 
 
 // Mock the virtual manifest module
@@ -84,7 +84,7 @@ interface StatsState extends Record<string, unknown> {
 }
 
 interface StatsDeps {
-  todoActor: ActorClient<TodoActor>;
+  todoActor: IActorClient<TodoActor>;
 }
 
 class StatsActor extends Actor<StatsState> {
@@ -122,8 +122,8 @@ const StatsToken = createActorToken<StatsActor>('stats');
 
 describe('E2E Integration Test', () => {
   let system: ActorSystem;
-  let todoClient: ActorClient<TodoActor>;
-  let statsClient: ActorClient<StatsActor>;
+  let todoClient: IActorClient<TodoActor>;
+  let statsClient: IActorClient<StatsActor>;
 
   beforeEach(async () => {
     system = new ActorSystem();
@@ -278,5 +278,80 @@ describe('E2E Integration Test', () => {
     statsClient.on('totalCount', (count) => {
       expect(typeof count).toBe('number');
     });
+  });
+
+  it('should properly unsubscribe custom event listeners', async () => {
+    // Create a custom event test
+    interface CustomEventState extends Record<string, unknown> {
+      value: number;
+    }
+
+    interface CustomEventEvents {
+      customEmitted: { data: string };
+    }
+
+    class CustomEmitterActor extends Actor<CustomEventState, CustomEventEvents> {
+      static readonly initialState: CustomEventState = { value: 0 };
+
+      constructor() {
+        super(CustomEmitterActor.initialState);
+      }
+
+      @action
+      emitCustom(data: string): void {
+        this.emit('customEmitted', { data });
+      }
+    }
+
+    const CustomToken = createActorToken<CustomEmitterActor>('custom');
+
+    const customSystem = new ActorSystem();
+    customSystem.register({
+      token: CustomToken,
+      actor: CustomEmitterActor,
+    });
+    await customSystem.start();
+
+    const customClient = customSystem.getClient(CustomToken)!;
+
+    // Subscribe to custom event
+    const callback = vi.fn();
+    customClient.on('customEmitted', callback);
+
+    // Emit should trigger callback
+    customClient.actions.emitCustom?.('test1');
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(callback).toHaveBeenCalledTimes(1);
+
+    // Unsubscribe
+    customClient.off('customEmitted', callback);
+
+    // Emit again - should NOT trigger callback
+    customClient.actions.emitCustom?.('test2');
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(callback).toHaveBeenCalledTimes(1); // Still 1, not 2
+
+    await customSystem.shutdown();
+  });
+
+  it('should use SyncActorClient for main-thread actors (no bus created)', async () => {
+    // This test verifies the architecture: main-thread actors should use SyncActorClient
+    // and should NOT have a bus created
+
+    // Access the actor instance directly (for testing purposes only)
+    const actorInstance = (system as any).instances.get(TodoToken.symbol);
+
+    // Main-thread actors should have NO bus
+    expect(actorInstance.bus).toBeUndefined();
+
+    // But should have an internal EventEmitter
+    expect((actorInstance as any).internalEventEmitter).toBeDefined();
+
+    // Verify SyncActorClient behavior: state access is direct, not cached
+    const state1 = todoClient.state;
+    const state2 = todoClient.state;
+
+    // Should return the same reference (direct access, not cached copy)
+    expect(state1).toBe(state2);
   });
 });

@@ -7,11 +7,12 @@ import { MAIN_THREAD_ID } from '../constants';
 import { ActorBus } from '../messaging/ActorBus';
 import { MainBus } from '../messaging/MainBus';
 import { WorkerRegistry } from '../threading/WorkerRegistry';
-import { Logger } from '../utils/Logger';
-import { ActorClient } from './ActorClient';
-import { getEffectMetadata, getThreadMetadata } from './decorators';
+import { AsyncActorClient } from './ActorClient';
+import { SyncActorClient } from './SyncActorClient';
+import { getThreadMetadata } from './decorators';
 import type { Actor, ActorMetadata, ActorConstructor } from './Actor';
 import type { ActorToken } from './ActorToken';
+import type { IActorClient } from './types';
 import type { AllEvents } from '../messaging/types';
 import type { InstantiateCommand } from '../threading/WorkerRuntime';
 
@@ -35,7 +36,7 @@ interface Graph {
 }
 
 // Type helper for dependency injection
-export type WithDeps<TDeps extends Record<string, ActorClient<any>>> = {
+export type WithDeps<TDeps extends Record<string, IActorClient<any>>> = {
   deps: TDeps;
 };
 
@@ -44,7 +45,7 @@ export default class ActorSystem {
   private workerRegistry: WorkerRegistry;
   private mainBus?: MainBus;
   private instances: Map<symbol, Actor> = new Map();
-  private clients: Map<symbol, ActorClient<any>> = new Map();
+  private clients: Map<symbol, IActorClient<any>> = new Map();
   private threadsToRegister: Set<string> = new Set();
 
   constructor() {
@@ -280,9 +281,9 @@ export default class ActorSystem {
       // Create actor bus for communication with worker
       const actorBus = new ActorBus<AllEvents<any, any>>(this.mainBus!, actorId);
 
-      // Create ActorClient with initial state from static property
+      // Create AsyncActorClient with initial state from static property
       // Worker will send updated state via __state message after instantiation
-      const client = new ActorClient(actorBus, ActorClass.initialState);
+      const client = new AsyncActorClient(actorBus, ActorClass.initialState);
       this.clients.set(token.symbol, client);
 
       return;
@@ -291,14 +292,11 @@ export default class ActorSystem {
     // Create actor instance for main thread
     const actorInstance = new ActorClass();
 
-    // Create actor bus with proper typing
-    const actorBus = new ActorBus<AllEvents<any, any>>(this.mainBus!, actorId);
-
-    // Initialize actor
-    actorInstance.__init(actorBus, metadata);
+    // Initialize actor (no bus needed for main-thread actors)
+    actorInstance.__init(metadata);
 
     // Build dependencies map
-    const deps: Record<string, ActorClient<any>> = {};
+    const deps: Record<string, IActorClient<any>> = {};
     for (const [depName, depToken] of Object.entries(dependencies)) {
       const depClient = this.clients.get(depToken.symbol);
       if (!depClient) {
@@ -315,12 +313,9 @@ export default class ActorSystem {
     // Store instance
     this.instances.set(token.symbol, actorInstance);
 
-    // Create and store ActorClient with initial state from static property
-    const client = new ActorClient(actorBus, ActorClass.initialState);
+    // Create and store SyncActorClient (handles effects internally)
+    const client = new SyncActorClient(actorInstance, deps, ActorClass);
     this.clients.set(token.symbol, client);
-
-    // Setup effects - subscribe to dependency events
-    this.setupEffects(actorInstance, ActorClass, deps);
 
     // Call lifecycle hook
     if (actorInstance.onInit) {
@@ -329,60 +324,19 @@ export default class ActorSystem {
   }
 
   /**
-   * Setup effect subscriptions for an actor
-   */
-  private setupEffects(
-    actorInstance: Actor,
-    ActorClass: new (...args: any[]) => Actor,
-    deps: Record<string, ActorClient<any>>
-  ): void {
-    const effectMetadata = getEffectMetadata(ActorClass);
-
-    for (const { methodName, eventSubscriptions } of effectMetadata) {
-      for (const { actorClientKey, eventName } of eventSubscriptions) {
-        const depClient = deps[actorClientKey];
-
-        if (!depClient) {
-          Logger.error(
-            `Effect "${methodName}" references dependency "${actorClientKey}" which was not found in deps`
-          );
-          continue;
-        }
-
-        // Subscribe to the specific event on the dependency
-        // Event name comes from decorator metadata and must be cast since depClient type is generic
-        (depClient as any).on(eventName, (payload: unknown) => {
-          // Enqueue effect invocation to mailbox for sequential processing
-          actorInstance.mailbox.enqueue(
-            () => {
-              const actor = actorInstance as unknown as Record<string, unknown>;
-              if (typeof actor[methodName] === 'function') {
-                (actor[methodName] as (payload: unknown) => void)(payload);
-              }
-            },
-            {
-              actorId: actorInstance.metadata.id,
-              method: methodName,
-            }
-          );
-        });
-      }
-    }
-  }
-
-  /**
    * Get an ActorClient for a registered actor (for external consumers)
    * The actor type is automatically inferred from the token.
+   * Returns the appropriate client type (SyncActorClient or AsyncActorClient)
    */
-  getClient<T extends Actor>(token: ActorToken<T>): ActorClient<T> | null {
+  getClient<T extends Actor>(token: ActorToken<T>): IActorClient<T> | null {
     const client = this.clients.get(token.symbol);
-    return client ? (client as ActorClient<T>) : null;
+    return client ? (client as IActorClient<T>) : null;
   }
 
   /**
    * Get an ActorClient by actorId (internal use)
    */
-  getClientByActorId(actorId: string): ActorClient<any> | null {
+  getClientByActorId(actorId: string): IActorClient<any> | null {
     const node = this.graph[actorId];
     if (!node) return null;
 

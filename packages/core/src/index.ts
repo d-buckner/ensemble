@@ -1,8 +1,9 @@
 // Core exports
 export { Actor, type ActorMetadata, type StateOf, type EventsOf, type StateShape, type ActorConstructor } from './core/Actor';
-export { ActorClient, type ActionsOf } from './core/ActorClient';
+export { ActorClient, AsyncActorClient, isAsyncActorClient, type ActionsOf, type IActorClient } from './core/ActorClient';
+export { SyncActorClient } from './core/SyncActorClient';
 export { default as ActorSystem } from './core/ActorSystem';
-export type { ActorRegistration, ActorSystemOptions } from './core/ActorSystem';
+export type { ActorRegistration } from './core/ActorSystem';
 export { action, effect, thread } from './core/decorators';
 export { createActorToken } from './core/ActorToken';
 export type { ActorToken } from './core/ActorToken';

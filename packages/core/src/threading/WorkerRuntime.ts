@@ -63,8 +63,8 @@ export default class WorkerRuntime {
     // Create actor bus
     const actorBus = new ActorBus<AllEvents<any, any>>(this.workerBus as any, actorId);
 
-    // Initialize actor
-    actorInstance.__init(actorBus, metadata);
+    // Initialize actor (bus is second parameter for worker-thread actors)
+    actorInstance.__init(metadata, actorBus);
 
     // Build dependencies map
     const deps: Record<string, ActorClient<any>> = {};
@@ -151,6 +151,10 @@ export default class WorkerRuntime {
     const actor = this.actors[actorId];
     if (!actor) {
       throw new Error(`Actor not found: ${actorId}`);
+    }
+
+    if (!actor.bus) {
+      throw new Error(`Actor ${actorId} has no bus configured (should not happen in WorkerRuntime)`);
     }
 
     actor.bus.emit(method, args);

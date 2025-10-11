@@ -146,12 +146,12 @@ describe('WorkerRuntime', () => {
       });
 
       expect(initSpy).toHaveBeenCalledWith(
-        expect.any(Object), // ActorBus
         expect.objectContaining({
           id: 'test-1',
           name: 'TestActor',
           threadId: 'worker-1',
-        })
+        }),
+        expect.any(Object) // ActorBus
       );
     });
 

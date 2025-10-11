@@ -1,51 +1,40 @@
 import { produce, type Draft } from 'immer';
 import EventEmitter from '../messaging/EventEmitter';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
-import type { Actor, StateOf, EventsOf } from './Actor';
+import type { Actor, StateOf } from './Actor';
 import type { IActorBus } from '../messaging/ActorBus';
-import type { AllEvents, TypedListener } from '../messaging/types';
+import type { TypedListener } from '../messaging/types';
+import type { IActorClient, ActionsOf, ClientAllEvents } from './types';
 
-// Exclude all base Actor class methods and properties
-type BaseActorKeys = keyof Actor<any, any>;
+// Re-export shared types for backward compatibility
+export type { IActorClient, ActionsOf } from './types';
 
-// Extract only the methods defined on the concrete actor, excluding base class members
-export type ActionsOf<TActor> = {
-  [K in Exclude<keyof TActor, BaseActorKeys>]: TActor[K] extends (...args: any[]) => any
-    ? TActor[K]
-    : never;
-};
-
-// Helper types to reduce repetition in ActorClient
-type ClientAllEvents<TActor> = AllEvents<StateOf<TActor>, EventsOf<TActor>>;
+// Export AsyncActorClient as ActorClient for backward compatibility
+export { AsyncActorClient as ActorClient };
 
 /**
- * ActorClient provides type-safe access to an actor's state and events.
- * The generic parameter TActor should be the concrete Actor class type,
- * from which state, events, and actions are automatically inferred.
+ * Type guard to check if a client is an AsyncActorClient
+ * Useful for distinguishing between SyncActorClient and AsyncActorClient at runtime
  */
-export interface IActorClient<TActor extends Actor<any, any>> {
-  readonly state: StateOf<TActor>;
-
-  on<K extends keyof ClientAllEvents<TActor>>(
-    eventName: K,
-    callback: TypedListener<ClientAllEvents<TActor>[K]>
-  ): void;
-
-  off<K extends keyof ClientAllEvents<TActor>>(
-    eventName: K,
-    callback: TypedListener<ClientAllEvents<TActor>[K]>
-  ): void;
-
-  dispose(): void;
-
-  readonly actions: ActionsOf<TActor>;
+export function isAsyncActorClient<TActor extends Actor<any, any>>(
+  client: IActorClient<TActor>
+): client is AsyncActorClient<TActor> {
+  return client instanceof AsyncActorClient;
 }
 
 /**
- * Concrete implementation of ActorClient that maintains a local state cache
- * and provides type-safe event subscriptions
+ * AsyncActorClient provides asynchronous access to actors running on worker threads.
+ *
+ * This client maintains a local state cache that stays synchronized with the worker thread
+ * via message passing. All actions are asynchronous and communicate through a bus.
+ *
+ * Key characteristics:
+ * - State is a cached copy, kept in sync via __state_partial protocol events
+ * - Actions are proxied through bus.emit() calls
+ * - Custom events are subscribed via bus
+ * - Requires state hydration on initialization
  */
-export class ActorClient<TActor extends Actor<any, any>> implements IActorClient<TActor> {
+export class AsyncActorClient<TActor extends Actor<any, any>> implements IActorClient<TActor> {
   private _state: StateOf<TActor>;
   private bus: IActorBus<ClientAllEvents<TActor>>;
   private stateListeners: EventEmitter<StateOf<TActor>> = new EventEmitter();

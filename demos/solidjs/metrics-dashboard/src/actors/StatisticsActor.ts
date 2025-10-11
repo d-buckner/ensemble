@@ -1,6 +1,6 @@
-import { Actor, thread, effect } from '@d-buckner/ensemble-core';
+import { Actor, effect, thread } from '@d-buckner/ensemble-core';
 import type { MetricGeneratorActor, MetricBatch } from './MetricGeneratorActor';
-import type { ActorClient } from '@d-buckner/ensemble-core';
+import type { IActorClient } from '@d-buckner/ensemble-core';
 
 
 export interface ProcessedMetrics {
@@ -56,7 +56,7 @@ export interface StatisticsEvents {
 }
 
 interface StatisticsDeps {
-  MetricGeneratorActor: ActorClient<MetricGeneratorActor>;
+  MetricGeneratorActor: IActorClient<MetricGeneratorActor>;
 }
 
 /**
@@ -66,11 +66,9 @@ interface StatisticsDeps {
  * - Complex aggregations and transformations
  * - Percentile calculations
  * - Batch processing of streaming data
- * - Cross-worker event communication
- *
- * Runs on WORKER-2 for parallel computation
+ * - Event-driven data flow
  */
-@thread('worker-2')
+@thread('worker-1')
 export class StatisticsActor extends Actor<StatisticsState, StatisticsEvents> {
   static readonly initialState: StatisticsState = {
     isProcessing: false,

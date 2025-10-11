@@ -37,7 +37,7 @@ export function setupActorWithBus<
     dependencies: options.dependencies ?? [],
   };
 
-  actorInstance.__init(bus, metadata);
+  actorInstance.__init(metadata, bus);
 
   return { actor: actorInstance, bus, metadata };
 }

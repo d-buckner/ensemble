@@ -1,9 +1,10 @@
 import { produceWithPatches, enablePatches, type Draft } from 'immer';
+import EventEmitter from '../messaging/EventEmitter';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import { getActionMetadata } from './decorators';
 import { Mailbox } from './Mailbox';
 import type { IActorBus } from '../messaging/ActorBus';
-import type { AllEvents } from '../messaging/types';
+import type { AllEvents, TypedListener } from '../messaging/types';
 import type { DeepReadonly } from '../utils/types';
 
 // Enable Immer patches plugin
@@ -51,7 +52,12 @@ export abstract class Actor<
   TState = any,
   TEvents = any
 > {
-  public bus!: IActorBus<AllEvents<TState, TEvents>>;
+  // Bus is only used for worker-thread actors (cross-thread communication)
+  public bus?: IActorBus<AllEvents<TState, TEvents>>;
+
+  // Internal EventEmitter for same-thread communication (main-thread actors)
+  private internalEventEmitter = new EventEmitter<AllEvents<TState, TEvents>>();
+
   private _state: TState;
   private _metadata!: ActorMetadata;
   public readonly mailbox = new Mailbox();
@@ -62,6 +68,10 @@ export abstract class Actor<
 
   get metadata(): ActorMetadata {
     return this._metadata;
+  }
+
+  get state(): TState {
+    return this._state;
   }
 
   // Error context tracking (set by framework)
@@ -81,9 +91,15 @@ export abstract class Actor<
   }
 
   // Framework injection (called after construction)
-  __init(bus: IActorBus<AllEvents<TState, TEvents>>, metadata: ActorMetadata): void {
-    this.bus = bus;
+  // Bus is optional - only provided for worker-thread actors
+  __init(metadata: ActorMetadata, bus?: IActorBus<AllEvents<TState, TEvents>>): void {
     this._metadata = metadata;
+    this.bus = bus;
+
+    // Only setup bus listeners if bus is provided (worker-thread actors)
+    if (!this.bus) {
+      return;
+    }
 
     // Subscribe to action method invocations
     // Each @action decorated method becomes an event listener
@@ -114,7 +130,7 @@ export abstract class Actor<
     this.bus.on(PROTOCOL_EVENTS.STATE_REQUEST as any, () => {
       this.mailbox.enqueue(
         () => {
-          this.bus.emit(PROTOCOL_EVENTS.STATE as any, this._state);
+          this.bus!.emit(PROTOCOL_EVENTS.STATE as any, this._state);
         },
         {
           actorId: this._metadata.id,
@@ -122,6 +138,68 @@ export abstract class Actor<
         }
       );
     });
+  }
+
+  // ============================================================================
+  // Internal hooks for SyncActorClient (main-thread actors)
+  // ============================================================================
+
+  /**
+   * Subscribe to state updates via internal EventEmitter (for main-thread actors)
+   * Returns unsubscribe function
+   * @internal Used by SyncActorClient
+   */
+  __onStateUpdate(callback: TypedListener<Partial<TState>>): () => void {
+    this.internalEventEmitter.on(PROTOCOL_EVENTS.STATE_PARTIAL as unknown as keyof AllEvents<TState, TEvents>, callback as any);
+    return () => {
+      this.internalEventEmitter.off(PROTOCOL_EVENTS.STATE_PARTIAL as unknown as keyof AllEvents<TState, TEvents>, callback as any);
+    };
+  }
+
+  /**
+   * Register a listener for custom events via internal EventEmitter (for main-thread actors)
+   * Returns unsubscribe function
+   * @internal Used by SyncActorClient
+   */
+  __registerInternalListener<K extends keyof TEvents>(
+    eventName: K,
+    callback: TypedListener<TEvents[K]>
+  ): () => void {
+    this.internalEventEmitter.on(eventName as unknown as keyof AllEvents<TState, TEvents>, callback as any);
+    return () => {
+      this.internalEventEmitter.off(eventName as unknown as keyof AllEvents<TState, TEvents>, callback as any);
+    };
+  }
+
+  /**
+   * Invoke an action method on this actor
+   * @internal Used by SyncActorClient and effects
+   *
+   * Main-thread actors (no bus): Direct synchronous invocation
+   * Worker-thread actors (with bus): Mailbox for async FIFO processing
+   */
+  __invokeAction(methodName: string, args: unknown[]): void {
+    const method = (this as any)[methodName];
+    if (typeof method !== 'function') {
+      return;
+    }
+
+    // Main-thread actors: Direct synchronous invocation
+    // No async message arrival, no mailbox overhead needed
+    if (!this.bus) {
+      method.apply(this, args);
+      return;
+    }
+
+    // Worker-thread actors: Use mailbox for async message handling
+    // Messages arrive via postMessage and need FIFO ordering & error isolation
+    this.mailbox.enqueue(
+      () => method.apply(this, args),
+      {
+        actorId: this._metadata.id,
+        method: methodName,
+      }
+    );
   }
 
   // State transition with Immer draft syntax
@@ -161,7 +239,11 @@ export abstract class Actor<
       }
     });
 
-    this.bus.emit(PROTOCOL_EVENTS.STATE_PARTIAL, partial);
+    // Dual emission: emit to both internal EventEmitter and bus (if present)
+    this.internalEventEmitter.emit(PROTOCOL_EVENTS.STATE_PARTIAL as unknown as keyof AllEvents<TState, TEvents>, partial as any);
+    if (this.bus) {
+      this.bus.emit(PROTOCOL_EVENTS.STATE_PARTIAL, partial);
+    }
   }
 
   // Event emission
@@ -174,19 +256,29 @@ export abstract class Actor<
       Object.freeze(payload);
     }
 
-    // Event names are strings/numbers (no symbols in serializable events)
-    this.bus.emit(eventName as string | number, payload);
+    // Dual emission: emit to both internal EventEmitter and bus (if present)
+    this.internalEventEmitter.emit(eventName as unknown as keyof AllEvents<TState, TEvents>, payload as any);
+    if (this.bus) {
+      // Event names are strings/numbers (no symbols in serializable events)
+      this.bus.emit(eventName as string | number, payload);
+    }
   }
 
   // Error emission
   protected throw(message: string, details?: unknown): void {
-    this.bus.emit('error', {
+    const errorPayload = {
       source: this.currentContext || 'action',
       method: this.currentMethod || 'unknown',
       error: new Error(message),
       details,
       timestamp: Date.now(),
-    });
+    };
+
+    // Dual emission: emit to both internal EventEmitter and bus (if present)
+    this.internalEventEmitter.emit('error' as unknown as keyof AllEvents<TState, TEvents>, errorPayload as any);
+    if (this.bus) {
+      this.bus.emit('error', errorPayload);
+    }
   }
 
   // Context management (used by framework)

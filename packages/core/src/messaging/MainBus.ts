@@ -1,6 +1,7 @@
 import { pack, unpack } from 'msgpackr';
 import { MAIN_THREAD_ID } from '../constants';
 import { Logger } from '../utils/Logger';
+import { isAsyncActorClient } from '../core/ActorClient';
 import { PROTOCOL_EVENTS } from './protocol-events';
 import { ThreadBus } from './ThreadBus';
 import type ActorSystem from '../core/ActorSystem';
@@ -152,7 +153,7 @@ export class MainBus extends ThreadBus {
     try {
       const { actorId, eventName, payload } = unpack(new Uint8Array(data));
 
-      // Special handling for __state messages - route to ActorClient
+      // Special handling for __state messages - route to AsyncActorClient
       if (eventName === PROTOCOL_EVENTS.STATE) {
         const client = this.actorSystem.getClientByActorId(actorId);
         if (!client) {
@@ -160,7 +161,11 @@ export class MainBus extends ThreadBus {
           return;
         }
 
-        client.hydrateState(payload);
+        // Only AsyncActorClient has hydrateState method (for worker-thread actors)
+        // Use type guard for proper type safety
+        if (isAsyncActorClient(client)) {
+          client.hydrateState(payload);
+        }
         return;
       }
 

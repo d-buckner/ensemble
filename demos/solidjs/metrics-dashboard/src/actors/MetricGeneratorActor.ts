@@ -56,9 +56,7 @@ export interface MetricGeneratorEvents {
  * Demonstrates:
  * - Batched event emissions (reduces serialization overhead)
  * - Complex data structure generation
- * - Continuous streaming on worker thread
- *
- * Runs on WORKER-1 to avoid blocking main thread
+ * - Continuous streaming
  */
 @thread('worker-1')
 export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGeneratorEvents> {
@@ -188,7 +186,7 @@ export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGene
       }
     } else {
       // Restart generation if we were generating before pause
-      if (this._state.isGenerating && this.intervalId === null) {
+      if (this.state.isGenerating && this.intervalId === null) {
         this.startBatchGeneration();
       }
     }
