@@ -1,4 +1,4 @@
-import { produce, type Draft } from 'immer';
+import { create, type Draft } from 'mutative';
 import EventEmitter from '../messaging/EventEmitter';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import type { Actor, StateOf } from './Actor';
@@ -110,8 +110,8 @@ export class AsyncActorClient<TActor extends Actor<any, any>> implements IActorC
   }
 
   private onStatePartial(partial: Partial<StateOf<TActor>>): void {
-    // Update local state cache with all changed properties using Immer
-    this._state = produce(this._state, (draft: Draft<StateOf<TActor>>) => {
+    // Update local state cache with all changed properties using Mutative
+    this._state = create(this._state, (draft: Draft<StateOf<TActor>>) => {
       Object.assign(draft, partial);
     }) as StateOf<TActor>;
 

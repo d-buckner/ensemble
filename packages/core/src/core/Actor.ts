@@ -1,4 +1,4 @@
-import { produceWithPatches, enablePatches, type Draft } from 'immer';
+import { create, type Draft } from 'mutative';
 import EventEmitter from '../messaging/EventEmitter';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import { getActionMetadata } from './decorators';
@@ -6,9 +6,6 @@ import { Mailbox } from './Mailbox';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { AllEvents, TypedListener } from '../messaging/types';
 import type { DeepReadonly } from '../utils/types';
-
-// Enable Immer patches plugin
-enablePatches();
 
 export interface ActorMetadata {
   id: string;
@@ -220,10 +217,10 @@ export abstract class Actor<
       this.stateUpdateQueue = [];
     };
 
-    const [nextState, patches] = produceWithPatches(this._state, batchUpdater);
+    const [nextState, patches] = create(this._state, batchUpdater, { enablePatches: true });
 
     if (nextState === this._state) {
-      return; // No changes (Immer returns same reference if no mutations)
+      return; // No changes (Mutative returns same reference if no mutations)
     }
 
     this._state = nextState;

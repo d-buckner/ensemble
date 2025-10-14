@@ -5,7 +5,7 @@ import { MAIN_THREAD_ID } from '../constants';
 type MessageHandler = (data: ArrayBuffer | Uint8Array) => void;
 
 export class WorkerRegistry {
-  private registry: Record<string, Worker> = {};
+  private registry = new Map<string, Worker>();
   private messageHandler?: MessageHandler;
 
   /**
@@ -16,7 +16,7 @@ export class WorkerRegistry {
     this.messageHandler = handler;
 
     // Attach handler to all existing workers
-    for (const worker of Object.values(this.registry)) {
+    for (const worker of this.registry.values()) {
       worker.addEventListener('message', (event) => {
         this.messageHandler?.(event.data);
       });
@@ -28,7 +28,7 @@ export class WorkerRegistry {
       throw new Error(`Cannot register a worker with reserved threadId: ${MAIN_THREAD_ID}`);
     }
 
-    if (this.registry[threadId]) {
+    if (this.registry.has(threadId)) {
       throw new Error(`Cannot register worker as worker with threadId that already exists: ${threadId}`);
     }
 
@@ -47,21 +47,21 @@ export class WorkerRegistry {
       });
     }
 
-    this.registry[threadId] = worker;
+    this.registry.set(threadId, worker);
   }
 
   get(threadId: string): Worker | null {
-    return this.registry[threadId] ?? null;
+    return this.registry.get(threadId) ?? null;
   }
 
   has(threadId: string): boolean {
-    return Boolean(this.registry[threadId]);
+    return this.registry.has(threadId);
   }
 
   terminateAll(): void {
-    for (const worker of Object.values(this.registry)) {
+    for (const worker of this.registry.values()) {
       worker.terminate();
     }
-    this.registry = {};
+    this.registry.clear();
   }
 }
