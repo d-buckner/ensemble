@@ -6,6 +6,8 @@ import { pack } from 'msgpackr';
 import { MAIN_THREAD_ID } from '../constants';
 import { ActorBus } from '../messaging/ActorBus';
 import { MainBus } from '../messaging/MainBus';
+import { ThreadStateCoordinator } from '../messaging/ThreadStateCoordinator';
+import { ThreadContext } from './ThreadContext';
 import { WorkerRegistry } from '../threading/WorkerRegistry';
 import { AsyncActorClient } from './ActorClient';
 import { SyncActorClient } from './SyncActorClient';
@@ -165,6 +167,11 @@ export default class ActorSystem {
     // Validate no cycles in dependency graph
     this.validateAcyclic();
 
+    // Initialize thread context for main thread
+    // Fail fast if already initialized (indicates double-start or multiple systems)
+    const coordinator = new ThreadStateCoordinator();
+    ThreadContext.initialize(coordinator);
+
     // Load worker manifest and register workers
     if (this.threadsToRegister.size > 0) {
       for (const threadId of this.threadsToRegister) {
@@ -214,6 +221,9 @@ export default class ActorSystem {
 
     // Clear main bus
     this.mainBus = undefined;
+
+    // Reset thread context (for testing)
+    ThreadContext.reset();
   }
 
   /**

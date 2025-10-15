@@ -2,6 +2,8 @@ import { ActorClient } from '../core/ActorClient';
 import { getEffectMetadata } from '../core/decorators';
 import { ActorBus } from '../messaging/ActorBus';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
+import { ThreadStateCoordinator } from '../messaging/ThreadStateCoordinator';
+import { ThreadContext } from '../core/ThreadContext';
 import { Logger } from '../utils/Logger';
 import type { Actor, ActorMetadata, ActorConstructor } from '../core/Actor';
 import type { WithDeps } from '../core/ActorSystem';
@@ -38,6 +40,10 @@ export default class WorkerRuntime {
     this.workerBus = workerBus;
     this.actorRegistry = actorRegistry;
     this.actorMetadata = actorMetadata;
+
+    // Initialize thread context with coordinator for this worker thread
+    const coordinator = new ThreadStateCoordinator();
+    ThreadContext.initialize(coordinator);
   }
 
   /**
@@ -134,10 +140,18 @@ export default class WorkerRuntime {
         // Subscribe to the specific event on the dependency
         // Event name comes from decorator metadata and must be cast since depClient type is generic
         (depClient as any).on(eventName, (payload: unknown) => {
-          // Execute the effect method on the actor (dynamic method access)
-          const actor = actorInstance as unknown as Record<string, unknown>;
-          if (typeof actor[methodName] === 'function') {
-            (actor[methodName] as (payload: unknown) => void)(payload);
+          try {
+            // Execute the effect method on the actor (dynamic method access)
+            const actor = actorInstance as unknown as Record<string, unknown>;
+            if (typeof actor[methodName] === 'function') {
+              (actor[methodName] as (payload: unknown) => void)(payload);
+            }
+          } catch (error) {
+            // Isolate effect errors to prevent one failing effect from blocking others
+            Logger.error(
+              `[WorkerRuntime] Effect "${methodName}" failed for actor ${actorInstance.metadata.id}:`,
+              error
+            );
           }
         });
       }

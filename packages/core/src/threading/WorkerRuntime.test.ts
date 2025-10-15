@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Actor, type ActorConstructor } from '../core/Actor';
 import { action, effect } from '../core/decorators';
+import { ThreadContext } from '../core/ThreadContext';
 import WorkerBus from '../messaging/WorkerBus';
 import WorkerRuntime from './WorkerRuntime';
 import type { ActorClient } from '../core/ActorClient';
@@ -94,6 +95,9 @@ describe('WorkerRuntime', () => {
   let actorRegistry: Record<string, ActorConstructor<any>>;
 
   beforeEach(() => {
+    // Reset ThreadContext before creating WorkerRuntime (which initializes it)
+    ThreadContext.reset();
+
     workerBus = new WorkerBus();
     actorRegistry = {
       TestActor,
@@ -263,7 +267,7 @@ describe('WorkerRuntime', () => {
 
       runtime.handleEvent('test-1', 'increment', []);
 
-      await flushAsync();
+      await flushMicrotask();
       expect(countEvents[0]).toBe(1);
     });
 
@@ -300,7 +304,7 @@ describe('WorkerRuntime', () => {
       runtime.handleEvent('test-2', 'increment', []);
       runtime.handleEvent('test-2', 'increment', []);
 
-      await flushAsync();
+      await flushMicrotask();
       expect(actor1CountEvents[0]).toBe(1);
       // Both increments on test-2 are batched into one emission
       expect(actor2CountEvents[0]).toBe(2);
@@ -361,7 +365,7 @@ describe('WorkerRuntime', () => {
       runtime.handleEvent('source-1', 'emitData', [42]);
       runtime.handleEvent('source-1', 'emitData', [100]);
 
-      await flushAsync();
+      await flushMicrotask();
       // Verify consumer effect was triggered and state updated
       // Both effects are batched into one state emission
       expect(receivedValuesUpdates.length).toBeGreaterThanOrEqual(1);
@@ -440,7 +444,7 @@ describe('WorkerRuntime', () => {
       runtime.handleEvent('test-source', 'increment', []);
       runtime.handleEvent('test-source', 'increment', []);
 
-      await flushAsync();
+      await flushEffects();
       // Verify consumer effect was triggered by state changes
       // Both effects are batched into one state emission
       expect(lastCountUpdates.length).toBeGreaterThanOrEqual(1);

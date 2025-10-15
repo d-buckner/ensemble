@@ -10,6 +10,7 @@ This document explains the key architectural patterns and design decisions in th
 - [Synchronous vs Asynchronous Clients](#synchronous-vs-asynchronous-clients)
 - [Optional Bus Design](#optional-bus-design)
 - [Effect Ownership](#effect-ownership)
+- [Thread-Level State Batching](#thread-level-state-batching)
 
 ---
 
@@ -76,7 +77,7 @@ protected emit<K extends keyof TEvents>(
 
 The dual emission pattern is used in three places in `Actor.ts`:
 
-1. **State updates** (`updateStateBatch()`):
+1. **State updates** (`__emitStateChanges()`):
    ```typescript
    this.internalEventEmitter.emit(PROTOCOL_EVENTS.STATE_PARTIAL, partial);
    if (this.bus) {
@@ -304,6 +305,270 @@ private setupEffects(actorInstance, ActorClass, deps): void {
 
 ---
 
+## Thread-Level State Batching
+
+### Problem
+
+When multiple actors update state in response to the same event, observers can see **partial updates** - intermediate states where some actors have updated but others haven't yet. This violates the principle of atomic visibility and can lead to inconsistent UI renders or derived state.
+
+**Example scenario**:
+```typescript
+// Source actor changes
+sourceActor.setValue(10);
+
+// Two derived actors react via effects
+// DerivedA: doubled = 10 * 2 = 20
+// DerivedB: tripled = 10 * 3 = 30
+
+// Problem: Observer might see (doubled: 20, tripled: 0) - partial update!
+```
+
+Additionally, multiple `setState()` calls within a single actor should be batched to minimize re-renders and event emissions.
+
+### Solution: Two-Phase Flushing with Thread Coordinator
+
+The framework uses **thread-level coordination** to batch all state updates and ensure atomic visibility:
+
+1. **ThreadContext**: Static utility providing thread-local access to coordinator
+2. **ThreadStateCoordinator**: Coordinates state flushing across all actors on a thread
+3. **Two-phase flushing**: Apply all updates first, then emit all events
+
+### Architecture Overview
+
+```typescript
+// ThreadContext.ts - Thread-local service access
+export class ThreadContext {
+  private static coordinator?: ThreadStateCoordinator;
+
+  static get current(): ThreadStateCoordinator {
+    return this.coordinator; // Throws if not initialized
+  }
+
+  static initialize(coordinator: ThreadStateCoordinator): void {
+    this.coordinator = coordinator;
+  }
+}
+
+// ThreadStateCoordinator.ts - Batch coordinator
+export class ThreadStateCoordinator {
+  private actorsWithPendingUpdates = new Set<Actor>();
+  private flushScheduled = false;
+
+  scheduleFlush(actor: Actor): void {
+    this.actorsWithPendingUpdates.add(actor);
+    if (!this.flushScheduled) {
+      this.flushScheduled = true;
+      queueMicrotask(() => this.flush());
+    }
+  }
+
+  private flush(): void {
+    // Phase 1: Apply all state updates
+    const partialStates = new Map();
+    for (const actor of this.actorsWithPendingUpdates) {
+      const partial = actor.__applyPendingStateUpdates();
+      if (partial) partialStates.set(actor, partial);
+    }
+
+    // Phase 2: Emit all state change events
+    for (const [actor, partial] of partialStates) {
+      actor.__emitStateChanges(partial);
+    }
+  }
+}
+```
+
+### How It Works
+
+#### 1. Actor.setState() Schedules Flush
+
+```typescript
+// In Actor.ts
+protected setState(updater: (draft: Draft<TState>) => void): void {
+  this.stateUpdateQueue.push(updater);
+
+  if (this.stateUpdateQueue.length === 1) {
+    // First update - schedule flush via thread coordinator
+    ThreadContext.current.scheduleFlush(this);
+  }
+}
+```
+
+#### 2. Coordinator Batches Actors
+
+All actors calling `setState()` in the same synchronous execution context are added to the coordinator's `Set`. Only **one microtask** is scheduled regardless of how many actors update.
+
+#### 3. Two-Phase Flushing Ensures Atomicity
+
+**Phase 1 - Apply Updates** (`__applyPendingStateUpdates()`):
+```typescript
+__applyPendingStateUpdates(): Partial<TState> | null {
+  // Batch all queued updates using Mutative
+  const [nextState, patches] = create(this._state, draft => {
+    this.stateUpdateQueue.forEach(updater => updater(draft));
+    this.stateUpdateQueue = [];
+  }, { enablePatches: true });
+
+  this._state = nextState;
+
+  // Build partial for Phase 2
+  const partial = extractChangedKeys(patches);
+  return partial;
+}
+```
+
+**Phase 2 - Emit Events** (`__emitStateChanges()`):
+```typescript
+__emitStateChanges(partial: Partial<TState>): void {
+  // Dual emission pattern
+  this.internalEventEmitter.emit(PROTOCOL_EVENTS.STATE_PARTIAL, partial);
+  if (this.bus) {
+    this.bus.emit(PROTOCOL_EVENTS.STATE_PARTIAL, partial);
+  }
+}
+```
+
+**Key insight**: By the time Phase 2 starts, **all actors have their updated state**. Observers reading state during event callbacks see a consistent snapshot.
+
+#### 4. BFS Effect Propagation
+
+Effects triggered during Phase 2 may call `setState()` on other actors. These new updates:
+- Are added to a fresh `Set` (Phase 1 cleared the previous batch)
+- Schedule a **new microtask** for the next flush wave
+- Propagate in **breadth-first** fashion across microtask cycles
+
+```
+Microtask 1: Source updates → emits → triggers effects on DerivedA/B
+Microtask 2: DerivedA/B update → emit → triggers effects on Composite
+Microtask 3: Composite updates → emits
+```
+
+### Benefits
+
+✅ **Atomic Visibility**: Observers never see partial updates across actors
+
+✅ **Automatic Batching**: Multiple `setState()` calls → single emission per actor
+
+✅ **BFS Propagation**: State changes propagate in waves through dependency graphs
+
+✅ **Zero Configuration**: Works automatically for all actors
+
+✅ **Error Isolation**: Failing effects don't block other effects (wrapped in try-catch)
+
+✅ **Performance**: Minimizes event emissions and re-renders
+
+✅ **Thread-Safe**: Each thread has its own isolated coordinator
+
+### Implementation Details
+
+#### ThreadContext Initialization
+
+**Main Thread** (`ActorSystem.start()`):
+```typescript
+async start(): Promise<void> {
+  const coordinator = new ThreadStateCoordinator();
+  ThreadContext.initialize(coordinator);
+  // ... instantiate actors
+}
+```
+
+**Worker Thread** (`WorkerRuntime` constructor):
+```typescript
+constructor(workerBus, actorRegistry, actorMetadata) {
+  const coordinator = new ThreadStateCoordinator();
+  ThreadContext.initialize(coordinator);
+}
+```
+
+#### Effect Error Isolation
+
+**SyncActorClient** (main-thread effects):
+```typescript
+const callback = (payload: unknown) => {
+  try {
+    this.actorInstance.__invokeAction(methodName, [payload]);
+  } catch (error) {
+    console.error(`[SyncActorClient] Effect "${methodName}" failed:`, error);
+  }
+};
+```
+
+**WorkerRuntime** (worker-thread effects):
+```typescript
+(depClient as any).on(eventName, (payload: unknown) => {
+  try {
+    const actor = actorInstance as unknown as Record<string, unknown>;
+    if (typeof actor[methodName] === 'function') {
+      (actor[methodName] as (payload: unknown) => void)(payload);
+    }
+  } catch (error) {
+    Logger.error(`[WorkerRuntime] Effect "${methodName}" failed:`, error);
+  }
+});
+```
+
+### Testing Support
+
+The framework provides semantic test helpers for different event loop levels:
+
+```typescript
+// test-setup.ts
+async function flushMicrotask(): Promise<void> {
+  await Promise.resolve(); // Single microtask cycle
+}
+
+async function flushMacrotask(): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, 0)); // Macrotask cycle
+}
+
+async function flushEffects(): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, 0)); // BFS propagation
+}
+```
+
+**Usage**:
+- `flushMicrotask()`: Test single-actor state batching
+- `flushEffects()`: Test cross-actor effect propagation
+- `flushMacrotask()`: Test async message passing with timers
+
+### Design Tradeoffs
+
+**Chosen Approach**: Per-thread coordinator with two-phase flushing
+
+**Alternatives Considered**:
+
+1. **Immediate emission** (no batching):
+   - ❌ Multiple emissions per setState call
+   - ❌ No atomic visibility
+   - ✅ Simpler implementation
+
+2. **Per-actor batching only** (no coordinator):
+   - ✅ Batches multiple setState calls within one actor
+   - ❌ No atomic visibility across actors
+   - ❌ Can't guarantee consistent snapshots
+
+3. **Global coordinator** (not per-thread):
+   - ❌ Violates thread isolation (workers don't share memory)
+   - ❌ Would require complex synchronization
+
+**Why two-phase flushing?**
+
+Single-phase (apply + emit per actor) would allow observers to see:
+- Actor A fully updated (state + events emitted)
+- Actor B not yet updated (state not applied)
+
+This creates **temporal inconsistency**. Two-phase ensures all state is updated before any events fire.
+
+### References
+
+- `src/core/ThreadContext.ts` - Thread-local service access
+- `src/messaging/ThreadStateCoordinator.ts` - Batch coordinator
+- `src/core/Actor.ts` - setState() implementation with two-phase split
+- `src/test-setup.ts` - Test helpers (flushMicrotask, flushEffects, etc.)
+- `src/core/atomic-updates.integration.test.ts` - Comprehensive integration tests
+
+---
+
 ## Design Principles
 
 ### 1. Interface-Based Design
@@ -482,9 +747,20 @@ When adding features, preserve these principles:
 
 ## References
 
+### Core Types & Base Classes
 - `src/core/types.ts` - Type definitions
-- `src/core/Actor.ts` - Base actor class with dual emission
+- `src/core/Actor.ts` - Base actor class with dual emission and state batching
+- `src/core/ActorSystem.ts` - Actor instantiation and coordination
+
+### Client Implementations
 - `src/core/SyncActorClient.ts` - Main-thread client
 - `src/core/ActorClient.ts` - Worker-thread client (AsyncActorClient)
-- `src/core/ActorSystem.ts` - Actor instantiation and coordination
+
+### State Coordination
+- `src/core/ThreadContext.ts` - Thread-local service access
+- `src/messaging/ThreadStateCoordinator.ts` - Cross-actor state batching
+
+### Testing
 - `src/integration.test.ts` - End-to-end tests demonstrating both client types
+- `src/core/atomic-updates.integration.test.ts` - Atomic visibility and batching tests
+- `src/test-setup.ts` - Test helpers (flushMicrotask, flushEffects, etc.)

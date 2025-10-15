@@ -163,8 +163,16 @@ export class SyncActorClient<TActor extends Actor<any, any>> implements IActorCl
 
         // Subscribe to the specific event on the dependency
         const callback = (payload: unknown) => {
-          // Execute the effect method on the actor via mailbox (for sequential processing)
-          this.actorInstance.__invokeAction(methodName, [payload]);
+          try {
+            // Execute the effect method on the actor via mailbox (for sequential processing)
+            this.actorInstance.__invokeAction(methodName, [payload]);
+          } catch (error) {
+            // Isolate effect errors to prevent one failing effect from blocking others
+            console.error(
+              `[SyncActorClient] Effect "${methodName}" failed for actor ${this.actorInstance.metadata.id}:`,
+              error
+            );
+          }
         };
 
         (depClient as any).on(eventName, callback);

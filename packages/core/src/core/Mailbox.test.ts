@@ -13,7 +13,7 @@ describe('Mailbox', () => {
       mailbox.enqueue(() => results.push(2));
       mailbox.enqueue(() => results.push(3));
 
-      await flushAsync();
+      await flushMicrotask();
       expect(results).toEqual([1, 2, 3]);
     });
 
@@ -258,7 +258,7 @@ describe('Mailbox', () => {
         method: 'testMethod',
       });
 
-      await flushAsync();
+      await flushMicrotask();
 
       // Should have logged an error
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -293,7 +293,7 @@ describe('Mailbox', () => {
         }
       );
 
-      await flushAsync();
+      await flushMicrotask();
 
       // Should have logged the error
       expect(consoleErrorSpy).toHaveBeenCalled();
@@ -314,7 +314,7 @@ describe('Mailbox', () => {
       mailbox.enqueue(() => results.push(1));
       mailbox.enqueue(() => results.push(2), undefined);
 
-      await flushAsync();
+      await flushMicrotask();
       expect(results).toEqual([1, 2]);
     });
 
@@ -332,7 +332,7 @@ describe('Mailbox', () => {
         }
       );
 
-      await flushAsync();
+      await flushMicrotask();
 
       // Should handle non-Error throws (stack won't be modified)
       expect(consoleErrorSpy).toHaveBeenCalledWith('[Mailbox] Handler error:', 'string error');
@@ -364,7 +364,7 @@ describe('Mailbox', () => {
         }
       );
 
-      await flushAsync();
+      await flushMicrotask();
 
       // Should have logged both errors
       expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
@@ -399,7 +399,7 @@ describe('Mailbox', () => {
         }
       );
 
-      await flushAsync();
+      await flushMicrotask();
 
       // Should still log the error, just without stack modification
       expect(consoleErrorSpy).toHaveBeenCalled();

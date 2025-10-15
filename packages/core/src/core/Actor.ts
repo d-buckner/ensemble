@@ -3,6 +3,7 @@ import EventEmitter from '../messaging/EventEmitter';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import { getActionMetadata } from './decorators';
 import { Mailbox } from './Mailbox';
+import { ThreadContext } from './ThreadContext';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { AllEvents, TypedListener } from '../messaging/types';
 import type { DeepReadonly } from '../utils/types';
@@ -84,7 +85,7 @@ export abstract class Actor<
     // Deep copy initialState to ensure each instance has its own state object
     // This prevents state from being shared across multiple actor instances
     this._state = structuredClone(initialState) as TState;
-    this.updateStateBatch = this.updateStateBatch.bind(this);
+    this.__flushPendingStateUpdates = this.__flushPendingStateUpdates.bind(this);
   }
 
   // Framework injection (called after construction)
@@ -199,16 +200,40 @@ export abstract class Actor<
     );
   }
 
-  // State transition with Immer draft syntax
+  /**
+   * Queue a state update to be applied in the next batch.
+   *
+   * State updates are batched per-thread: all actors on the same thread
+   * that call setState() in the same synchronous execution context will
+   * have their updates flushed together in a single microtask.
+   *
+   * This ensures atomic visibility - observers will see all derived state
+   * updates simultaneously without intermediate states.
+   *
+   * @param updater - Function that mutates a draft of the current state (Mutative API)
+   * @throws Error if ThreadContext is not initialized (indicates framework setup issue)
+   */
   protected setState(updater: (draft: Draft<TState>) => void): void {
     this.stateUpdateQueue.push(updater);
 
     if (this.stateUpdateQueue.length === 1) {
-      queueMicrotask(this.updateStateBatch);
+      // Always use thread-level coordinator - fail fast if not initialized
+      ThreadContext.current.scheduleFlush(this);
     }
   }
 
-  private updateStateBatch() {
+  /**
+   * Apply pending state updates without emitting events.
+   * Returns the partial state to be emitted in phase 2.
+   *
+   * @internal Called by ThreadStateCoordinator (phase 1)
+   */
+  __applyPendingStateUpdates(): Partial<TState> | null {
+    // Guard against empty queue (shouldn't happen, but defensive)
+    if (this.stateUpdateQueue.length === 0) {
+      return null;
+    }
+
     const batchUpdater = (draft: Draft<TState>) => {
       this.stateUpdateQueue.forEach(updater => {
         updater(draft);
@@ -220,7 +245,7 @@ export abstract class Actor<
     const [nextState, patches] = create(this._state, batchUpdater, { enablePatches: true });
 
     if (nextState === this._state) {
-      return; // No changes (Mutative returns same reference if no mutations)
+      return null; // No changes (Mutative returns same reference if no mutations)
     }
 
     this._state = nextState;
@@ -236,10 +261,32 @@ export abstract class Actor<
       }
     });
 
+    return partial;
+  }
+
+  /**
+   * Emit state change events for the given partial state.
+   *
+   * @internal Called by ThreadStateCoordinator (phase 2)
+   */
+  __emitStateChanges(partial: Partial<TState>): void {
     // Dual emission: emit to both internal EventEmitter and bus (if present)
     this.internalEventEmitter.emit(PROTOCOL_EVENTS.STATE_PARTIAL as unknown as keyof AllEvents<TState, TEvents>, partial as any);
     if (this.bus) {
       this.bus.emit(PROTOCOL_EVENTS.STATE_PARTIAL, partial);
+    }
+  }
+
+  /**
+   * Flush all pending state updates in the queue.
+   * Applies all queued updaters in a single Mutative transaction and emits STATE_PARTIAL.
+   *
+   * @internal Called by ThreadStateCoordinator
+   */
+  __flushPendingStateUpdates(): void {
+    const partial = this.__applyPendingStateUpdates();
+    if (partial) {
+      this.__emitStateChanges(partial);
     }
   }
 

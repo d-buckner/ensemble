@@ -114,7 +114,7 @@ describe('Actor', () => {
         draft.count = 11; // Trigger event
       });
 
-      await flushAsync();
+      await flushMicrotask();
       expect(countEvents[0]).toBe(11); // Confirms state was initialized to 10
     });
 
@@ -145,7 +145,7 @@ describe('Actor', () => {
         draft.count = 5;
       });
 
-      await flushAsync();
+      await flushMicrotask();
       expect(countEvents[0]).toBe(5);
     });
 
@@ -158,7 +158,7 @@ describe('Actor', () => {
         draft.count = 10;
       });
 
-      await flushAsync();
+      await flushMicrotask();
       expect(partialCallback).toHaveBeenCalledWith({ count: 10 });
       expect(partialCallback).toHaveBeenCalledTimes(1);
     });
@@ -173,7 +173,7 @@ describe('Actor', () => {
         draft.name = 'updated';
       });
 
-      await flushAsync();
+      await flushMicrotask();
       expect(partialCallback).toHaveBeenCalledWith({ count: 10, name: 'updated' });
       expect(partialCallback).toHaveBeenCalledTimes(1);
     });
@@ -202,7 +202,7 @@ describe('Actor', () => {
 
       actor.addItem('item-1', 100);
 
-      await flushAsync();
+      await flushMicrotask();
       expect(itemsCallback).toHaveBeenCalledWith([{ id: 'item-1', value: 100 }]);
     });
 
@@ -211,7 +211,7 @@ describe('Actor', () => {
 
       actor.addItem('item-1', 100);
 
-      await flushAsync();
+      await flushMicrotask();
 
       bus.on('__state_partial', (payload: unknown) => {
         const partial = payload as Partial<TestState>;
@@ -222,7 +222,7 @@ describe('Actor', () => {
 
       actor.updateItemValue('item-1', 200);
 
-      await flushAsync();
+      await flushMicrotask();
       expect(itemsCallback).toHaveBeenCalledWith([{ id: 'item-1', value: 200 }]);
     });
 
@@ -251,7 +251,7 @@ describe('Actor', () => {
 
       bus.emit('increment', []);
 
-      await flushAsync();
+      await flushMicrotask();
       expect(countEvents[0]).toBe(1);
     });
 
@@ -266,7 +266,7 @@ describe('Actor', () => {
 
       bus.emit('setName', ['new-name']);
 
-      await flushAsync();
+      await flushMicrotask();
       expect(nameEvents[0]).toBe('new-name');
     });
 
@@ -281,7 +281,7 @@ describe('Actor', () => {
 
       bus.emit('addItem', ['item-1', 42]);
 
-      await flushAsync();
+      await flushMicrotask();
       expect(itemsEvents[0]).toHaveLength(1);
       expect(itemsEvents[0][0]).toEqual({ id: 'item-1', value: 42 });
     });
