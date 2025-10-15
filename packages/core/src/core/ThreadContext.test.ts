@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ThreadContext } from './ThreadContext';
 import { ThreadStateCoordinator } from '../messaging/ThreadStateCoordinator';
+import { ThreadContext } from './ThreadContext';
+
 
 describe('ThreadContext', () => {
   // Reset before each test (test-setup.ts initializes it globally)

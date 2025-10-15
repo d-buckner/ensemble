@@ -76,7 +76,6 @@ export function MessageFlowViz() {
   const MAX_WIDTH = 800;
   const MAX_HEIGHT = 450;
   const DEFAULT_WIDTH = 800;
-  const DEFAULT_HEIGHT = 450;
 
   let currentScale = 1;
 
@@ -148,7 +147,7 @@ export function MessageFlowViz() {
       line.lineTo(targetPos.x, targetPos.y);
       line.stroke({ width: 2 * currentScale, color: 0x333333, alpha: 0.6 });
 
-      graphContainer.addChild(line);
+      graphContainer?.addChild(line);
     });
 
     // Draw nodes
@@ -203,7 +202,7 @@ export function MessageFlowViz() {
       nodeGroup.addChild(badge);
       nodeGroup.addChild(threadText);
 
-      graphContainer.addChild(nodeGroup);
+      graphContainer?.addChild(nodeGroup);
     });
   };
 

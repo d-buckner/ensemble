@@ -1,7 +1,7 @@
 import { vi, beforeEach, afterEach } from 'vitest';
-import { Logger } from './utils/Logger';
 import { ThreadContext } from './core/ThreadContext';
 import { ThreadStateCoordinator } from './messaging/ThreadStateCoordinator';
+import { Logger } from './utils/Logger';
 
 // Mock all Logger methods to be no-ops during tests
 vi.spyOn(Logger, 'debug').mockImplementation(() => {});
@@ -9,12 +9,9 @@ vi.spyOn(Logger, 'info').mockImplementation(() => {});
 vi.spyOn(Logger, 'warn').mockImplementation(() => {});
 vi.spyOn(Logger, 'error').mockImplementation(() => {});
 
-// Auto-initialize ThreadContext for tests that don't use ActorSystem
-// Tests that create an ActorSystem should reset ThreadContext in their beforeEach
-// before calling system.start(), which will initialize its own coordinator
+// Auto-initialize ThreadContext for standalone actor tests
+// Tests that use ActorSystem.start() will reset and reinitialize automatically
 beforeEach(() => {
-  // Only initialize if not already initialized
-  // This handles standalone actor tests that don't use ActorSystem
   if (!ThreadContext.isInitialized) {
     const coordinator = new ThreadStateCoordinator();
     ThreadContext.initialize(coordinator);

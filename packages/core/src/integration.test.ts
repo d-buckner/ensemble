@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Actor } from './core/Actor';
 import ActorSystem from './core/ActorSystem';
 import { createActorToken } from './core/ActorToken';
-import { ThreadContext } from './core/ThreadContext';
 import { action, effect } from './core/decorators';
 import type { IActorClient } from './core/types';
 
@@ -127,9 +126,6 @@ describe('E2E Integration Test', () => {
   let statsClient: IActorClient<StatsActor>;
 
   beforeEach(async () => {
-    // Reset ThreadContext before each test (system.start() will initialize it)
-    ThreadContext.reset();
-
     system = new ActorSystem();
 
     // Register TodoActor
@@ -309,10 +305,8 @@ describe('E2E Integration Test', () => {
 
     const CustomToken = createActorToken<CustomEmitterActor>('custom');
 
-    // Reset ThreadContext before creating a new system (await system.start() will initialize it)
-    // This is needed because beforeEach already initialized ThreadContext for the main system
-    await system.shutdown(); // Shutdown main system first to reset ThreadContext
-    ThreadContext.reset();
+    // Shutdown main system first to reset ThreadContext
+    await system.shutdown();
 
     const customSystem = new ActorSystem();
     customSystem.register({

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Actor } from './Actor';
 import ActorSystem from './ActorSystem';
 import { createActorToken } from './ActorToken';
-import { ThreadContext } from './ThreadContext';
 import type { ActorToken } from './ActorToken';
 
 
@@ -65,9 +64,6 @@ describe('ActorSystem', () => {
   let originalWorker: typeof Worker;
 
   beforeEach(() => {
-    // Reset ThreadContext before each test (system.start() will initialize it)
-    ThreadContext.reset();
-
     system = new ActorSystem();
     mockToken = createActorToken<MockActor>('mock');
     dependentToken = createActorToken<DependentActor>('dependent');

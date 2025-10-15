@@ -1,7 +1,7 @@
 import { pack, unpack } from 'msgpackr';
 import { MAIN_THREAD_ID } from '../constants';
-import { Logger } from '../utils/Logger';
 import { isAsyncActorClient } from '../core/ActorClient';
+import { Logger } from '../utils/Logger';
 import { PROTOCOL_EVENTS } from './protocol-events';
 import { ThreadBus } from './ThreadBus';
 import type ActorSystem from '../core/ActorSystem';

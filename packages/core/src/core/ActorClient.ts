@@ -2,9 +2,9 @@ import { create, type Draft } from 'mutative';
 import EventEmitter from '../messaging/EventEmitter';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import type { Actor, StateOf } from './Actor';
+import type { IActorClient, ActionsOf, ClientAllEvents } from './types';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { TypedListener } from '../messaging/types';
-import type { IActorClient, ActionsOf, ClientAllEvents } from './types';
 
 // Re-export shared types for backward compatibility
 export type { IActorClient, ActionsOf } from './types';

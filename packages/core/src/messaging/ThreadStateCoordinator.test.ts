@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ThreadStateCoordinator } from './ThreadStateCoordinator';
 import { Actor } from '../core/Actor';
 import { action } from '../core/decorators';
 import { ThreadContext } from '../core/ThreadContext';
+import { ThreadStateCoordinator } from './ThreadStateCoordinator';
 
 // Mock actor for testing
 interface TestState {
@@ -68,8 +68,7 @@ describe('ThreadStateCoordinator', () => {
   let actor2: TestActor;
 
   beforeEach(() => {
-    // Reset ThreadContext and create fresh coordinator
-    ThreadContext.reset();
+    ThreadContext.reset(); // Reset global beforeEach initialization
     coordinator = new ThreadStateCoordinator();
     ThreadContext.initialize(coordinator);
 

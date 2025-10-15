@@ -95,9 +95,7 @@ describe('WorkerRuntime', () => {
   let actorRegistry: Record<string, ActorConstructor<any>>;
 
   beforeEach(() => {
-    // Reset ThreadContext before creating WorkerRuntime (which initializes it)
-    ThreadContext.reset();
-
+    ThreadContext.reset(); // Reset global beforeEach initialization
     workerBus = new WorkerBus();
     actorRegistry = {
       TestActor,

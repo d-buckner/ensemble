@@ -7,11 +7,11 @@ import { MAIN_THREAD_ID } from '../constants';
 import { ActorBus } from '../messaging/ActorBus';
 import { MainBus } from '../messaging/MainBus';
 import { ThreadStateCoordinator } from '../messaging/ThreadStateCoordinator';
-import { ThreadContext } from './ThreadContext';
 import { WorkerRegistry } from '../threading/WorkerRegistry';
 import { AsyncActorClient } from './ActorClient';
-import { SyncActorClient } from './SyncActorClient';
 import { getThreadMetadata } from './decorators';
+import { SyncActorClient } from './SyncActorClient';
+import { ThreadContext } from './ThreadContext';
 import type { Actor, ActorMetadata, ActorConstructor } from './Actor';
 import type { ActorToken } from './ActorToken';
 import type { IActorClient } from './types';
@@ -168,7 +168,10 @@ export default class ActorSystem {
     this.validateAcyclic();
 
     // Initialize thread context for main thread
-    // Fail fast if already initialized (indicates double-start or multiple systems)
+    // Reset if already initialized (happens in tests with multiple ActorSystem instances)
+    if (ThreadContext.isInitialized) {
+      ThreadContext.reset();
+    }
     const coordinator = new ThreadStateCoordinator();
     ThreadContext.initialize(coordinator);
 

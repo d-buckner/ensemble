@@ -1,9 +1,9 @@
 import { ActorClient } from '../core/ActorClient';
 import { getEffectMetadata } from '../core/decorators';
+import { ThreadContext } from '../core/ThreadContext';
 import { ActorBus } from '../messaging/ActorBus';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
 import { ThreadStateCoordinator } from '../messaging/ThreadStateCoordinator';
-import { ThreadContext } from '../core/ThreadContext';
 import { Logger } from '../utils/Logger';
 import type { Actor, ActorMetadata, ActorConstructor } from '../core/Actor';
 import type { WithDeps } from '../core/ActorSystem';

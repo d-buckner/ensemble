@@ -13,6 +13,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    setupFiles: ['../core/src/test-setup.ts'],
   },
   resolve: {
     conditions: ['browser', 'development'],

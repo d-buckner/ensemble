@@ -8,6 +8,7 @@ import type { IActorBus } from '../messaging/ActorBus';
 import type { AllEvents, TypedListener } from '../messaging/types';
 import type { DeepReadonly } from '../utils/types';
 
+
 export interface ActorMetadata {
   id: string;
   name: string;

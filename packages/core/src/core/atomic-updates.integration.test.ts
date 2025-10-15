@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Actor } from './Actor';
 import ActorSystem from './ActorSystem';
 import { createActorToken } from './ActorToken';
-import { ThreadContext } from './ThreadContext';
 import { action, effect } from './decorators';
 import type { IActorClient } from './types';
 
@@ -164,8 +163,6 @@ describe('Atomic Cross-Actor Updates Integration', () => {
   let compositeClient: IActorClient<CompositeActor>;
 
   beforeEach(async () => {
-    ThreadContext.reset();
-
     system = new ActorSystem();
 
     // Register source actor
