@@ -1,6 +1,7 @@
 {
   "name": "@d-buckner/ensemble-react",
   "version": "0.0.0",
+  "description": "React bindings for Ensemble actor model framework",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,10 +11,33 @@
       "default": "./dist/index.js"
     }
   },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/d-buckner/ensemble.git",
+    "directory": "packages/react"
+  },
+  "keywords": [
+    "react",
+    "actor",
+    "state-management",
+    "hooks",
+    "typescript",
+    "reactive"
+  ],
+  "author": "Daniel Buckner",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
   },
   "peerDependencies": {
     "react": "^18.0.0"

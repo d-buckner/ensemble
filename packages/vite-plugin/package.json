@@ -1,6 +1,7 @@
 {
   "name": "@d-buckner/ensemble-vite-plugin",
   "version": "0.0.0",
+  "description": "Vite plugin for Ensemble actor threading with Web Workers",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -9,10 +10,34 @@
       "default": "./dist/index.js"
     }
   },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/d-buckner/ensemble.git",
+    "directory": "packages/vite-plugin"
+  },
+  "keywords": [
+    "vite",
+    "vite-plugin",
+    "actor",
+    "web-workers",
+    "threading",
+    "bundler",
+    "typescript"
+  ],
+  "author": "Daniel Buckner",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
   },
   "peerDependencies": {
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
