@@ -1,6 +1,6 @@
 {
   "name": "@d-buckner/ensemble-core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Type-safe actor model framework for predictable state management",
   "type": "module",
   "main": "./dist/index.js",
