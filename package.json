@@ -18,9 +18,9 @@
     "demo:react:counter": "turbo run dev --filter=demo-react-counter",
     "demo:solidjs:counter": "turbo run dev --filter=demo-solidjs-counter",
     "demo:solidjs:metrics-dashboard": "turbo run dev --filter=demo-solidjs-metrics-dashboard",
-    "version": "lerna version --no-private",
-    "publish": "lerna publish from-package --no-private",
-    "publish:ci": "lerna publish from-package --no-private --yes"
+    "release:version": "lerna version --no-private",
+    "release:publish": "lerna publish from-package --no-private",
+    "release:publish:ci": "lerna publish from-package --no-private --yes"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",

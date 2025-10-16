@@ -80,7 +80,7 @@ npm whoami
 
 ```bash
 # Interactive version bump (choose "minor" for 0.0.0 → 0.1.0)
-npm run version
+npm run release:version
 
 # This will:
 # - Prompt for version bumps
@@ -100,10 +100,10 @@ git push --follow-tags
 
 ```bash
 # Publish packages (with confirmation prompts)
-npm run publish
+npm run release:publish
 
 # Alternative: CI/CD mode (no prompts)
-npm run publish:ci
+npm run release:publish:ci
 ```
 
 ### 6. Verification
@@ -138,6 +138,6 @@ npm install @d-buckner/ensemble-core @d-buckner/ensemble-react
 
 - **DO NOT** publish with failing tests
 - **DO NOT** publish with uncommitted changes
-- **DO NOT** skip the version step - always use `npm run version`
+- **DO NOT** skip the version step - always use `npm run release:version`
 - **DO** test installation after publishing
 - **DO** announce releases appropriately

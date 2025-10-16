@@ -34,7 +34,7 @@ Ensemble uses **Lerna** with **fixed/locked versioning**, meaning all packages s
 ### Step 1: Version Packages
 
 ```bash
-npm run version
+npm run release:version
 ```
 
 This will:
@@ -60,7 +60,7 @@ The `--follow-tags` flag ensures version tags are pushed along with the commit.
 ### Step 3: Publish to npm
 
 ```bash
-npm run publish
+npm run release:publish
 ```
 
 This will:
@@ -70,7 +70,7 @@ This will:
 
 **For CI/CD (no prompts):**
 ```bash
-npm run publish:ci
+npm run release:publish:ci
 ```
 
 ## First Release (0.0.0 → 0.1.0)
@@ -83,13 +83,13 @@ npm run build
 npm test
 
 # 2. Version all packages (select "minor" for 0.0.0 → 0.1.0)
-npm run version
+npm run release:version
 
 # 3. Push tags
 git push --follow-tags
 
 # 4. Publish
-npm run publish
+npm run release:publish
 ```
 
 ## Package Structure
@@ -158,7 +158,7 @@ For automated publishing in CI/CD:
    ```
 3. Run publishing script:
    ```bash
-   npm run publish:ci
+   npm run release:publish:ci
    ```
 
 ## Lerna Configuration
