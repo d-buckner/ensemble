@@ -21,25 +21,21 @@ Before publishing Ensemble packages to npm for the first time, verify these item
 
 ## 📦 Package Status
 
-All packages are ready for publication:
+All packages are currently at version **0.1.0**:
 
-1. **@d-buckner/ensemble-core** - Core actor framework
-   - Version: 0.0.0 → ready for 0.1.0
+1. **@d-buckner/ensemble-core@0.1.0** - Core actor framework
    - Build: ✅ Passing
    - Tests: ✅ 250 tests passing
 
-2. **@d-buckner/ensemble-react** - React bindings
-   - Version: 0.0.0 → ready for 0.1.0
+2. **@d-buckner/ensemble-react@0.1.0** - React bindings
    - Build: ✅ Passing
    - Tests: ✅ 10 tests passing
 
-3. **@d-buckner/ensemble-solidjs** - SolidJS bindings
-   - Version: 0.0.0 → ready for 0.1.0
+3. **@d-buckner/ensemble-solidjs@0.1.0** - SolidJS bindings
    - Build: ✅ Passing
    - Tests: ✅ 9 tests passing
 
-4. **@d-buckner/ensemble-vite-plugin** - Vite plugin
-   - Version: 0.0.0 → ready for 0.1.0
+4. **@d-buckner/ensemble-vite-plugin@0.1.0** - Vite plugin
    - Build: ✅ Passing (CommonJS)
    - Tests: ✅ 44 tests passing
 
