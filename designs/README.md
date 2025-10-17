@@ -9,14 +9,14 @@ This directory contains design documents and architectural documentation for Ens
 
 ## Active Designs
 
-### Collaborative CRDT Package
+### Collaboration CRDT Package
 
-**File**: `COLLABORATIVE_PACKAGE.md`
+**File**: `COLLABORATION_PACKAGE.md`
 
-Design for `@d-buckner/ensemble-collaborative` - a package providing collaborative editing capabilities through Conflict-Free Replicated Data Types (CRDTs) using Automerge.
+Design for `@d-buckner/ensemble-collaboration` - a package providing collaboration capabilities through Conflict-Free Replicated Data Types (CRDTs) using Automerge.
 
 **Key Features:**
-- Four-actor architecture (CollaborativeActor, PeerMessagingActor, WebSocketActor, WebRTCActor)
+- Four-actor architecture (CollaborationActor, PeerMessagingActor, WebSocketActor, WebRTCActor)
 - Document-as-state pattern (no wrapper objects)
 - WebRTC-first with WebSocket fallback
 - Effect-driven sync protocol

@@ -1,14 +1,14 @@
-# Collaborative CRDT Package: Design Proposal
+# Collaboration CRDT Package: Design Proposal
 
 ## Overview
 
-This proposal introduces `@d-buckner/ensemble-collaborative`, a package providing collaborative editing capabilities through Conflict-Free Replicated Data Types (CRDTs) using Automerge.
+This proposal introduces `@d-buckner/ensemble-collaboration`, a package providing collaborative editing capabilities through Conflict-Free Replicated Data Types (CRDTs) using Automerge.
 
 **Core components:**
 - **PeerMessagingActor** - Tracks peer connections and routes messages to appropriate transport
 - **WebSocketActor** - Socket.IO client for signaling and fallback transport
 - **WebRTCActor** - peer-pressure wrapper for WebRTC P2P data channels
-- **CollaborativeActor<TDoc>** - Generic CRDT document manager where TDoc IS the actor state
+- **CollaborationActor<TDoc>** - Generic CRDT document manager where TDoc IS the actor state
 
 **Key principle:** The CRDT document is the actor's state directly. No wrapper objects, no metadata pollution. All mutations go through `setState()`, which is internally backed by Automerge for automatic conflict resolution.
 
@@ -41,14 +41,14 @@ WebSocketActor + WebRTCActor (transport implementations)
               ↓
         PeerMessagingActor (state tracker)
               ↓ (dependency via @effect)
-     CollaborativeActor<TDoc> (CRDT management)
+     CollaborationActor<TDoc> (CRDT management)
 ```
 
 **Separation of concerns:**
 - **WebSocketActor**: Socket.IO connection, signaling, fallback transport
 - **WebRTCActor**: WebRTC peer-pressure wrapper, P2P data channels
 - **PeerMessagingActor**: Tracks peer state and routes messages to transports
-- **CollaborativeActor**: CRDT operations, conflict resolution
+- **CollaborationActor**: CRDT operations, conflict resolution
 
 ### Why Four Actors?
 
@@ -121,27 +121,27 @@ WebSocketActor + WebRTCActor (transport implementations)
 **Dependencies:**
 - None (fully decoupled from transports)
 
-### 4. CollaborativeActor
+### 4. CollaborationActor
 
 **Responsibility:** Pure CRDT document management
 
 **Core innovation:** TDoc IS the state. No wrapper, no metadata.
 
 ```typescript
-interface CollaborativeEvents {
+interface CollaborationEvents {
   // No events needed - uses PeerMessagingActor for all peer communication
 }
 
-interface CollaborativeDeps {
+interface CollaborationDeps {
   connection: IActorClient<PeerMessagingActor>;  // Single dependency!
 }
 
-class CollaborativeActor<TDoc> extends Actor<TDoc, CollaborativeEvents> {
+class CollaborationActor<TDoc> extends Actor<TDoc, CollaborationEvents> {
   // Automerge internals (private, NOT in state)
   private automergeDoc: AutomergeDoc<TDoc>;
   private syncStates = new Map<string, SyncState>();
 
-  protected declare deps: CollaborativeDeps;
+  protected declare deps: CollaborationDeps;
 
   constructor(initialDocument: TDoc) {
     super(initialDocument);
@@ -258,15 +258,15 @@ class CollaborativeActor<TDoc> extends Actor<TDoc, CollaborativeEvents> {
 
 ### Basic Setup
 
-Users extend CollaborativeActor and add domain-specific actions:
+Users extend CollaborationActor and add domain-specific actions:
 
 ```typescript
 import {
-  CollaborativeActor,
+  CollaborationActor,
   PeerMessagingActor,
   WebSocketActor,
   WebRTCActor
-} from '@d-buckner/ensemble-collaborative';
+} from '@d-buckner/ensemble-collaboration';
 import { createActorToken, ActorSystem, action } from '@d-buckner/ensemble-core';
 
 // 1. Define document type
@@ -274,8 +274,8 @@ interface TodoDoc {
   todos: Array<{ id: string; text: string; done: boolean }>;
 }
 
-// 2. Extend CollaborativeActor with domain actions
-class TodosActor extends CollaborativeActor<TodoDoc> {
+// 2. Extend CollaborationActor with domain actions
+class TodosActor extends CollaborationActor<TodoDoc> {
   static readonly initialState: TodoDoc = {
     todos: []
   };
@@ -384,13 +384,13 @@ The four-actor stack provides clean separation:
 1. Register WebSocketActor (no dependencies)
 2. Register PeerMessagingActor (depends on websocket + webrtc)
 3. Register WebRTCActor (depends on peerMessaging)
-4. Register CollaborativeActor (depends on peerMessaging)
+4. Register CollaborationActor (depends on peerMessaging)
 
 **Runtime Flow:**
 1. User joins room via `websocket.actions.joinRoom(roomId)`
 2. PeerMessagingActor tracks peer connections via effects
 3. WebRTCActor establishes P2P connections
-4. CollaborativeActor calls PeerMessagingActor actions to send messages
+4. CollaborationActor calls PeerMessagingActor actions to send messages
 5. PeerMessagingActor routes to appropriate transport based on peer state
 6. State changes automatically sync via selected transport
 
@@ -440,17 +440,17 @@ protected setState(updater: (draft: Draft<TDoc>) => void): void {
 - ❌ Would create confusion about which to use when
 - ✅ Override keeps API consistent
 
-### 3. Users Extend CollaborativeActor
+### 3. Users Extend CollaborationActor
 
-**Decision:** CollaborativeActor is a base class, users extend it
+**Decision:** CollaborationActor is a base class, users extend it
 
 **Rationale:**
 - **Domain actions**: Users add `addTodo()`, `toggleTodo()`, etc.
-- **Type safety**: `TodosActor extends CollaborativeActor<TodoDoc>`
+- **Type safety**: `TodosActor extends CollaborationActor<TodoDoc>`
 - **Encapsulation**: Business logic lives with state definition
 - **Familiar pattern**: Same as extending `Actor` in core framework
 
-**Alternative considered:** Direct use of CollaborativeActor
+**Alternative considered:** Direct use of CollaborationActor
 - ❌ Would force all mutations through generic `setState()` from outside
 - ❌ Would lose encapsulation of business logic
 - ✅ Extension enables domain-specific APIs
@@ -471,7 +471,7 @@ WebRTCActor/WebSocketActor receives data
   → emits 'messageReceived' event
     → PeerMessagingActor @effect('webrtc/websocket.messageReceived')
       → emits normalized 'messageReceived' event
-        → CollaborativeActor @effect('connection.messageReceived')
+        → CollaborationActor @effect('connection.messageReceived')
           → applies Automerge changes
             → calls connection.actions.sendTo()
               → PeerMessagingActor routes to appropriate transport
@@ -483,16 +483,16 @@ WebRTCActor/WebSocketActor receives data
 
 **Rationale:**
 - **Single responsibility**: PeerMessagingActor = peer communication layer
-- **Simplified dependencies**: CollaborativeActor only depends on PeerMessagingActor
+- **Simplified dependencies**: CollaborationActor only depends on PeerMessagingActor
 - **Encapsulated routing**: Routing logic lives with the state it depends on
 - **Event normalization**: Single `messageReceived` event from PeerMessagingActor
 - **No circular dependencies**: PeerMessagingActor listens to transports via effects (one-way)
 
-**Alternative considered:** CollaborativeActor routes messages directly to transports
-- ❌ Requires CollaborativeActor to depend on both WebSocket and WebRTC actors
+**Alternative considered:** CollaborationActor routes messages directly to transports
+- ❌ Requires CollaborationActor to depend on both WebSocket and WebRTC actors
 - ❌ Tight coupling between CRDT logic and transport selection
 - ❌ Per-message state queries for routing decision
-- ✅ Routing in PeerMessagingActor simplifies CollaborativeActor
+- ✅ Routing in PeerMessagingActor simplifies CollaborationActor
 
 ## Lifecycle & Initialization
 
@@ -682,7 +682,7 @@ Subsequent messages automatically route via WebSocket
 **Error Handling:**
 - `WebRTCActor.sendTo()` throws error if peer not connected
 - `PeerMessagingActor.sendTo()` catches error and falls back to WebSocket
-- No message loss: fallback is transparent to CollaborativeActor
+- No message loss: fallback is transparent to CollaborationActor
 
 ### Race Condition Handling
 
@@ -746,14 +746,14 @@ PeerMessagingActor removes all peers from state
   ↓
 WebRTCActor destroys all peer-pressure instances
   ↓
-CollaborativeActor cleans up sync states
+CollaborationActor cleans up sync states
 ```
 
 **Cleanup Order:**
 1. WebSocketActor leaves room
 2. PeerMessagingActor emits `peerDisconnected` for each peer
 3. WebRTCActor destroys peer instances via `@effect('peerMessaging.peerDisconnected')`
-4. CollaborativeActor cleans up sync states via `@effect('connection.peerDisconnected')`
+4. CollaborationActor cleans up sync states via `@effect('connection.peerDisconnected')`
 
 ### Key Initialization Insights
 
@@ -762,7 +762,7 @@ CollaborativeActor cleans up sync states
 
 **2. Explicit Connection Lifecycle:** Unlike many Socket.IO clients that auto-connect, WebSocketActor requires an explicit `connect()` action. This gives users fine-grained control over when collaboration begins.
 
-**3. Layered Fallback Strategy:** The system maintains connectivity at multiple levels - WebRTC can fail while WebSocket stays connected, and PeerMessagingActor automatically routes to the working transport without any awareness at the CollaborativeActor level.
+**3. Layered Fallback Strategy:** The system maintains connectivity at multiple levels - WebRTC can fail while WebSocket stays connected, and PeerMessagingActor automatically routes to the working transport without any awareness at the CollaborationActor level.
 `─────────────────────────────────────────────────`
 
 ## Implementation Details
@@ -866,7 +866,7 @@ private syncStates: Map<string, SyncState>; // Per-peer sync state
 - ✅ Signaling via WebSocketActor
 - ✅ Data channel message send/receive
 
-**CollaborativeActor:**
+**CollaborationActor:**
 - ✅ `setState()` routes through Automerge
 - ✅ Local changes generate sync messages
 - ✅ Remote changes update state
@@ -927,13 +927,13 @@ packages/collaborative/
 │   ├── PeerMessagingActor.ts # Peer messaging state tracking
 │   ├── WebSocketActor.ts     # Socket.IO transport
 │   ├── WebRTCActor.ts        # WebRTC transport
-│   ├── CollaborativeActor.ts # CRDT document
+│   ├── CollaborationActor.ts # CRDT document
 │   ├── types.ts              # TypeScript types
 │   └── __tests__/
 │       ├── PeerMessagingActor.test.ts
 │       ├── WebSocketActor.test.ts
 │       ├── WebRTCActor.test.ts
-│       ├── CollaborativeActor.test.ts
+│       ├── CollaborationActor.test.ts
 │       └── integration.test.ts
 └── examples/
     ├── todos/                # TodosActor example
@@ -944,7 +944,7 @@ packages/collaborative/
 
 ```json
 {
-  "name": "@d-buckner/ensemble-collaborative",
+  "name": "@d-buckner/ensemble-collaboration",
   "dependencies": {
     "@d-buckner/ensemble-core": "*",
     "@automerge/automerge": "^2.2.8",
@@ -974,7 +974,7 @@ WebSocketActor (Socket.IO) ────┐
                                 │
 WebRTCActor (peer-pressure) ────┼──> PeerMessagingActor (routing coordinator)
                                 │              ↓
-                                └──────> CollaborativeActor
+                                └──────> CollaborationActor
                                             (delegates message routing
                                              to PeerMessagingActor)
 ```
@@ -984,7 +984,7 @@ WebRTCActor (peer-pressure) ────┼──> PeerMessagingActor (routing c
 - **PeerMessagingActor:** Tracks peer state and routes messages to appropriate transport
 - **WebSocketActor:** Socket.IO client for signaling and fallback message transport
 - **WebRTCActor:** peer-pressure wrapper for WebRTC data channels
-- **CollaborativeActor:** CRDT sync logic, delegates message sending to PeerMessagingActor
+- **CollaborationActor:** CRDT sync logic, delegates message sending to PeerMessagingActor
 
 **Transport Strategy:**
 - **Primary:** WebRTC peer-to-peer data channels for all CRDT sync messages
@@ -1052,7 +1052,7 @@ sendTo(peerId: string, message: Uint8Array): void {
 **Key Features:**
 - ✅ Single source of truth for peer state
 - ✅ Tracks active transport per peer
-- ✅ Encapsulates routing logic - CollaborativeActor doesn't know about transports
+- ✅ Encapsulates routing logic - CollaborationActor doesn't know about transports
 - ✅ Normalizes events from both transports
 - ✅ No circular dependencies (only listens to transports via effects)
 
@@ -1150,7 +1150,7 @@ sendTo(peerId: string, message: Uint8Array): void {
 
 ```
 ┌──────────────────────────────────────────────┐
-│   CollaborativeActor<TDoc>                   │
+│   CollaborationActor<TDoc>                   │
 │   (CRDT document management)                 │
 │   Depends on: PeerMessagingActor (single!)   │
 └──────────────────────────────────────────────┘
@@ -1192,7 +1192,7 @@ sendTo(peerId: string, message: Uint8Array): void {
    - Reports connection state to PeerMessagingActor
    - Fully decoupled from WebSocketActor
 
-4. **CollaborativeActor (Application Layer)**
+4. **CollaborationActor (Application Layer)**
    - Depends only on PeerMessagingActor (single dependency!)
    - Calls `connection.actions.sendTo()` - routing handled automatically
    - Listens to `connection.messageReceived` - normalized from both transports
@@ -1217,7 +1217,7 @@ sendTo(peerId: string, message: Uint8Array): void {
 - WebRTCActor emits `peerConnected`, PeerMessagingActor updates transport='webrtc'
 
 **CRDT Synchronization:**
-- CollaborativeActor state change → generates Automerge sync message
+- CollaborationActor state change → generates Automerge sync message
 - Calls `connection.actions.sendTo(peerId, message)`
 - PeerMessagingActor routes based on `peerTransports[peerId]` state
 - If 'webrtc': routes to `webrtc.actions.sendTo()`
@@ -1226,7 +1226,7 @@ sendTo(peerId: string, message: Uint8Array): void {
 
 **Transport Selection Strategy:**
 - PeerMessagingActor handles routing automatically
-- CollaborativeActor doesn't know about transports - just calls `connection.sendTo()`
+- CollaborationActor doesn't know about transports - just calls `connection.sendTo()`
 - WebRTC preferred: low latency, no server relay
 - WebSocket fallback: automatic when WebRTC unavailable
 - No per-message overhead: routing decision made once per peer state change
@@ -1256,13 +1256,13 @@ packages/collaborative/
 ├── src/
 │   ├── index.ts              # Public exports (all actors)
 │   ├── PeerMessagingActor.ts # Peer messaging state tracker
-│   ├── CollaborativeActor.ts # CRDT document
+│   ├── CollaborationActor.ts # CRDT document
 │   ├── WebSocketActor.ts     # WebSocket transport
 │   ├── WebRTCActor.ts        # WebRTC transport
 │   ├── types.ts              # TypeScript types
 │   └── __tests__/
 │       ├── PeerMessagingActor.test.ts
-│       ├── CollaborativeActor.test.ts
+│       ├── CollaborationActor.test.ts
 │       ├── WebSocketActor.test.ts
 │       ├── WebRTCActor.test.ts
 │       └── integration.test.ts
@@ -1277,7 +1277,7 @@ packages/collaborative/
 export { PeerMessagingActor } from './PeerMessagingActor';
 export { WebSocketActor } from './WebSocketActor';
 export { WebRTCActor } from './WebRTCActor';
-export { CollaborativeActor } from './CollaborativeActor';
+export { CollaborationActor } from './CollaborationActor';
 export type {
   PeerMessagingState,
   PeerMessagingEvents,
@@ -1285,7 +1285,7 @@ export type {
   WebSocketEvents,
   WebRTCState,
   WebRTCEvents,
-  CollaborativeEvents
+  CollaborationEvents
 } from './types';
 ```
 
@@ -1296,7 +1296,7 @@ export type {
 2. Implement PeerMessagingActor (state tracking + routing coordination)
 3. Implement WebSocketActor (Socket.IO client)
 4. Implement WebRTCActor (peer-pressure wrapper)
-5. Implement CollaborativeActor (setState override + effects)
+5. Implement CollaborationActor (setState override + effects)
 6. Add TypeScript types
 7. Unit tests for all actors
 8. Integration tests (full four-actor stack)
@@ -1334,7 +1334,7 @@ interface PersistenceAdapter {
   load(documentId: string): Promise<Uint8Array | null>;
 }
 
-class TodosActor extends CollaborativeActor<TodoDoc> {
+class TodosActor extends CollaborationActor<TodoDoc> {
   private persistence?: PersistenceAdapter;
 
   async onInit() {
@@ -1376,7 +1376,7 @@ class PresenceActor extends Actor<PresenceState, PresenceEvents> {
 ### 3. Time-Travel Debugging
 
 ```typescript
-class CollaborativeActor<TDoc> {
+class CollaborationActor<TDoc> {
   private history: AutomergeDoc<TDoc>[] = [];
 
   protected setState(updater: (draft: Draft<TDoc>) => void): void {
@@ -1397,7 +1397,7 @@ class CollaborativeActor<TDoc> {
 
 ## Open Questions
 
-1. **Should CollaborativeActor provide document ID management?**
+1. **Should CollaborationActor provide document ID management?**
    - **Option A**: Add `documentId` to constructor, manage internally
    - **Option B**: Let users manage document IDs in their extension
    - **Recommendation**: Option B - keep base class minimal
@@ -1425,20 +1425,20 @@ class CollaborativeActor<TDoc> {
 ## Success Criteria
 
 ✅ **API Clarity:**
-- Users can extend CollaborativeActor and add domain actions
+- Users can extend CollaborationActor and add domain actions
 - No CRDT knowledge required for basic usage
 - State is direct document type (no wrapper)
 
 ✅ **Actor Model Purity:**
 - All communication via effects (no public sync methods)
-- Clean dependencies (PeerMessagingActor ← WebSocket/WebRTC ← CollaborativeActor)
+- Clean dependencies (PeerMessagingActor ← WebSocket/WebRTC ← CollaborationActor)
 - No networking knowledge in CRDT code
 - Routing logic encapsulated in PeerMessagingActor
 
 ✅ **Transport Flexibility:**
 - Independent WebSocketActor and WebRTCActor implementations
 - PeerMessagingActor coordinates transport selection based on peer state
-- CollaborativeActor delegates routing to PeerMessagingActor
+- CollaborationActor delegates routing to PeerMessagingActor
 - No coupling between CRDT logic and transport implementation
 
 ✅ **Performance:**
@@ -1455,7 +1455,7 @@ class CollaborativeActor<TDoc> {
 
 This proposal provides collaborative CRDT capabilities while maintaining the actor model's principles:
 
-- **State ownership**: Each actor owns its state (PeerMessagingActor = peer state, WebSocketActor/WebRTCActor = transport state, CollaborativeActor = document)
+- **State ownership**: Each actor owns its state (PeerMessagingActor = peer state, WebSocketActor/WebRTCActor = transport state, CollaborationActor = document)
 - **Message passing**: All communication via actions and effects
 - **Dependency injection**: Clear dependency chain (WebSocket → WebRTC → PeerMessaging → Collaborative)
 - **Clean abstractions**: CRDT logic, state tracking, and transport completely separated
@@ -1471,5 +1471,5 @@ Key innovations:
 - ✅ setState override for transparent CRDT
 - ✅ Effect-driven sync (no public sync methods)
 - ✅ Routing coordinator (PeerMessagingActor encapsulates transport selection)
-- ✅ Clean separation (CollaborativeActor doesn't know about transports)
-- ✅ Users extend CollaborativeActor and add domain actions
+- ✅ Clean separation (CollaborationActor doesn't know about transports)
+- ✅ Users extend CollaborationActor and add domain actions
