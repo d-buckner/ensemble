@@ -15,7 +15,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['immer', 'msgpackr', 'reflect-metadata', 'virtual:worker-manifest'],
+      external: ['mutative', 'msgpackr', 'reflect-metadata', 'virtual:worker-manifest'],
       output: {
         preserveModules: true,
         preserveModulesRoot: 'src',

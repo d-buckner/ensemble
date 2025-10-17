@@ -64,39 +64,39 @@ describe('WorkerRegistry', () => {
   });
 
   describe('add()', () => {
-    it('should create and register a new worker with manifest path', () => {
-      registry.add('worker-1');
+    it('should create and register a new worker with manifest path', async () => {
+      await registry.add('worker-1');
 
       const worker = registry.get('worker-1');
       expect(worker).toBeDefined();
       expect((worker as unknown as MockWorker).url).toBe('./workers/worker-1-abc123.js');
     });
 
-    it('should throw when trying to register main thread', () => {
-      expect(() => {
-        registry.add(MAIN_THREAD_ID);
-      }).toThrow(`Cannot register a worker with reserved threadId: ${MAIN_THREAD_ID}`);
+    it('should throw when trying to register main thread', async () => {
+      await expect(async () => {
+        await registry.add(MAIN_THREAD_ID);
+      }).rejects.toThrow(`Cannot register a worker with reserved threadId: ${MAIN_THREAD_ID}`);
     });
 
-    it('should throw when trying to register duplicate threadId', () => {
-      registry.add('worker-1');
+    it('should throw when trying to register duplicate threadId', async () => {
+      await registry.add('worker-1');
 
-      expect(() => {
-        registry.add('worker-1');
-      }).toThrow('Cannot register worker as worker with threadId that already exists: worker-1');
+      await expect(async () => {
+        await registry.add('worker-1');
+      }).rejects.toThrow('Cannot register worker as worker with threadId that already exists: worker-1');
     });
 
-    it('should throw when worker path not found in manifest', () => {
-      expect(() => {
-        registry.add('nonexistent-worker');
-      }).toThrow('Worker path not found in manifest for threadId: nonexistent-worker');
+    it('should throw when worker path not found in manifest', async () => {
+      await expect(async () => {
+        await registry.add('nonexistent-worker');
+      }).rejects.toThrow('Worker path not found in manifest for threadId: nonexistent-worker');
     });
 
-    it('should attach message handler to new worker if handler already set', () => {
+    it('should attach message handler to new worker if handler already set', async () => {
       const handler = vi.fn();
       registry.setMessageHandler(handler);
 
-      registry.add('worker-1');
+      await registry.add('worker-1');
 
       const worker = registry.get('worker-1') as unknown as MockWorker;
       const testData = { test: 'data' };
@@ -105,20 +105,20 @@ describe('WorkerRegistry', () => {
       expect(handler).toHaveBeenCalledWith(testData);
     });
 
-    it('should register multiple workers', () => {
-      registry.add('worker-1');
-      registry.add('worker-2');
-      registry.add('worker-3');
+    it('should register multiple workers', async () => {
+      await registry.add('worker-1');
+      await registry.add('worker-2');
+      await registry.add('worker-3');
 
       expect(registry.has('worker-1')).toBe(true);
       expect(registry.has('worker-2')).toBe(true);
       expect(registry.has('worker-3')).toBe(true);
     });
 
-    it('should load thread-specific worker bundles from manifest', () => {
-      registry.add('worker-1');
-      registry.add('compute');
-      registry.add('io-thread');
+    it('should load thread-specific worker bundles from manifest', async () => {
+      await registry.add('worker-1');
+      await registry.add('compute');
+      await registry.add('io-thread');
 
       const worker1 = registry.get('worker-1') as unknown as MockWorker;
       const workerCompute = registry.get('compute') as unknown as MockWorker;
@@ -129,9 +129,9 @@ describe('WorkerRegistry', () => {
       expect(workerIo.url).toBe('./workers/io-thread-mno345.js');
     });
 
-    it('should use paths from manifest regardless of directory', () => {
-      registry.add('worker-1');
-      registry.add('database');
+    it('should use paths from manifest regardless of directory', async () => {
+      await registry.add('worker-1');
+      await registry.add('database');
 
       const worker1 = registry.get('worker-1') as unknown as MockWorker;
       const workerDb = registry.get('database') as unknown as MockWorker;
@@ -142,8 +142,8 @@ describe('WorkerRegistry', () => {
   });
 
   describe('get()', () => {
-    it('should return worker if exists', () => {
-      registry.add('worker-1');
+    it('should return worker if exists', async () => {
+      await registry.add('worker-1');
 
       const worker = registry.get('worker-1');
 
@@ -159,8 +159,8 @@ describe('WorkerRegistry', () => {
   });
 
   describe('has()', () => {
-    it('should return true if worker exists', () => {
-      registry.add('worker-1');
+    it('should return true if worker exists', async () => {
+      await registry.add('worker-1');
 
       expect(registry.has('worker-1')).toBe(true);
     });
@@ -171,11 +171,11 @@ describe('WorkerRegistry', () => {
   });
 
   describe('setMessageHandler()', () => {
-    it('should set message handler', () => {
+    it('should set message handler', async () => {
       const handler = vi.fn();
 
       registry.setMessageHandler(handler);
-      registry.add('worker-1');
+      await registry.add('worker-1');
 
       const worker = registry.get('worker-1') as unknown as MockWorker;
       worker.simulateMessage({ test: 'data' });
@@ -183,9 +183,9 @@ describe('WorkerRegistry', () => {
       expect(handler).toHaveBeenCalledWith({ test: 'data' });
     });
 
-    it('should attach handler to all existing workers', () => {
-      registry.add('worker-1');
-      registry.add('worker-2');
+    it('should attach handler to all existing workers', async () => {
+      await registry.add('worker-1');
+      await registry.add('worker-2');
 
       const handler = vi.fn();
       registry.setMessageHandler(handler);
@@ -201,11 +201,11 @@ describe('WorkerRegistry', () => {
       expect(handler).toHaveBeenCalledTimes(2);
     });
 
-    it('should attach handler to workers added after handler is set', () => {
+    it('should attach handler to workers added after handler is set', async () => {
       const handler = vi.fn();
       registry.setMessageHandler(handler);
 
-      registry.add('worker-1');
+      await registry.add('worker-1');
       const worker = registry.get('worker-1') as unknown as MockWorker;
       worker.simulateMessage({ test: 'data' });
 
@@ -215,7 +215,7 @@ describe('WorkerRegistry', () => {
   });
 
   describe('integration', () => {
-    it('should coordinate multiple workers with handler', () => {
+    it('should coordinate multiple workers with handler', async () => {
       const messages: Array<{ threadId: string; data: unknown }> = [];
       const handler = vi.fn((data) => {
         // Track which worker sent what
@@ -224,8 +224,8 @@ describe('WorkerRegistry', () => {
 
       registry.setMessageHandler(handler);
 
-      registry.add('worker-1');
-      registry.add('worker-2');
+      await registry.add('worker-1');
+      await registry.add('worker-2');
 
       const worker1 = registry.get('worker-1') as unknown as MockWorker;
       const worker2 = registry.get('worker-2') as unknown as MockWorker;

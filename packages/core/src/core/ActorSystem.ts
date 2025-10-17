@@ -178,7 +178,7 @@ export default class ActorSystem {
     // Load worker manifest and register workers
     if (this.threadsToRegister.size > 0) {
       for (const threadId of this.threadsToRegister) {
-        this.workerRegistry.add(threadId);
+        await this.workerRegistry.add(threadId);
       }
     }
 

@@ -10,19 +10,6 @@ export default defineConfig({
       rollupTypes: true,
       include: ['src/**/*'],
     }),
-    {
-      name: 'virtual-modules',
-      resolveId(id) {
-        if (id === 'virtual:worker-manifest') {
-          return id;
-        }
-      },
-      load(id) {
-        if (id === 'virtual:worker-manifest') {
-          return 'export default {};';
-        }
-      },
-    },
   ],
   build: {
     lib: {
@@ -47,9 +34,5 @@ export default defineConfig({
       },
     },
     sourcemap: true,
-  },
-  test: {
-    globals: true,
-    environment: 'node',
   },
 });

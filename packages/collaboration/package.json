@@ -61,6 +61,7 @@
   },
   "devDependencies": {
     "@d-buckner/ensemble-core": "*",
+    "@d-buckner/ensemble-vite-plugin": "*",
     "concurrently": "^9.1.2",
     "tsx": "^4.19.2",
     "typescript": "~5.9.3",

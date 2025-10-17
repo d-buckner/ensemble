@@ -12,6 +12,7 @@
  * collaboration with automatic conflict resolution via Automerge CRDTs.
  */
 
+import 'reflect-metadata';
 import { createActorToken, ActorSystem, action } from '@d-buckner/ensemble-core';
 import { CollaborationActor, PeerMessagingActor, WebSocketActor } from '../src/index';
 
