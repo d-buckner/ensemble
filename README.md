@@ -1,12 +1,125 @@
 # Ensemble
 
+[![npm version](https://img.shields.io/npm/v/@d-buckner/ensemble-core.svg)](https://www.npmjs.com/package/@d-buckner/ensemble-core)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+
 ## Overview
 
 Ensemble is a frontend framework for building complex applications using the actor model. It enables developers to organize application logic into independent, composable actors that communicate via message passing. Actors can run on any thread (main or a worker) without coupling the actor topology to execution context, allowing for flexible performance optimization and clear separation of concerns.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Project Status](#project-status)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Packages](#packages)
+- [The Challenge](#the-challenge)
+- [Core Architecture](#core-architecture)
+  - [Actors and the Actor System](#actors-and-the-actor-system)
+  - [ActorClients: The Developer Interface](#actorclients-the-developer-interface)
+  - [Actor System: Lifecycle and Dependency Management](#actor-system-lifecycle-and-dependency-management)
+- [How It Works: The Actor Model](#how-it-works-the-actor-model)
+  - [Mental Model](#mental-model)
+  - [The Routing Pattern](#the-routing-pattern)
+  - [Why Centralized Routing?](#why-centralized-routing)
+- [Real-Time Collaboration](#real-time-collaboration)
+- [Key Design Principles](#key-design-principles)
+- [Examples & Demos](#examples--demos)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
 **Who is this for?**
 
 Ensemble is an experiment framework for folks who have run into compositional/multi-threading challenges with traditional frameworks and tools. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or innovative frontends where maintaining development velocity as complexity grows becomes a primary concern.
+
+## Project Status
+
+**Version:** 0.1.0 (Initial Release)
+**Status:** ⚠️ Experimental - APIs may change
+
+Ensemble is a new framework actively being developed. While the core concepts are solid and the implementation is functional, you should expect:
+- API changes between minor versions
+- Ongoing performance optimization
+- Expanding documentation and examples
+
+Not recommended for production use yet, but perfect for experimentation and feedback.
+
+## Installation
+
+```bash
+# Core framework
+npm install @d-buckner/ensemble-core
+
+# React bindings
+npm install @d-buckner/ensemble-react
+
+# SolidJS bindings
+npm install @d-buckner/ensemble-solidjs
+
+# Vite plugin (for multi-threading support)
+npm install -D @d-buckner/ensemble-vite-plugin
+
+# Collaboration (real-time CRDT sync)
+npm install @d-buckner/ensemble-collaboration
+```
+
+## Quick Start
+
+```typescript
+import { createActorToken, ActorSystem, Actor, action } from '@d-buckner/ensemble-core';
+
+// 1. Define an actor
+class CounterActor extends Actor {
+  state = { count: 0 };
+
+  @action
+  increment(): void {
+    this.setState({ count: this.state.count + 1 });
+  }
+}
+
+// 2. Create a token and system
+const CounterToken = createActorToken<CounterActor>('counter');
+const system = new ActorSystem();
+
+system.register({ token: CounterToken, actor: CounterActor });
+await system.start();
+
+// 3. Use the actor
+const counter = system.get(CounterToken);
+counter.on('stateChanged', (state) => console.log(state));
+counter.actions.increment(); // { count: 1 }
+```
+
+**With React:**
+
+```typescript
+import { useActor } from '@d-buckner/ensemble-react';
+
+function Counter() {
+  const { state, actions } = useActor(CounterToken);
+  return (
+    <button onClick={actions.increment}>
+      Count: {state.count}
+    </button>
+  );
+}
+```
+
+## Packages
+
+Ensemble is a monorepo with multiple packages:
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| [@d-buckner/ensemble-core](./packages/core) | 0.1.0 | Core actor framework with threading support |
+| [@d-buckner/ensemble-react](./packages/react) | 0.1.0 | React hooks and bindings |
+| [@d-buckner/ensemble-solidjs](./packages/solidjs) | 0.1.0 | SolidJS primitives and bindings |
+| [@d-buckner/ensemble-vite-plugin](./packages/vite-plugin) | 0.1.0 | Vite plugin for Web Worker threading |
+| [@d-buckner/ensemble-collaboration](./packages/collaboration) | 0.1.0 | Real-time collaboration with Automerge CRDTs |
 
 ## The Challenge
 For large-scale and innovative frontends, some fundamental architectural challenges can impact developer velocity:
@@ -40,8 +153,6 @@ Because actors communicate through message passing with clear boundaries, they c
 Actors are the fundamental building blocks of a Ensemble application. Each actor is an independent unit that can have its own state and emit events. Actors can depend on other actors, creating an **actor system** that defines the relationships between different parts of your application.
 
 The key insight is that while actors may depend on each other logically, they're not bound to the same execution context. An actor running in a worker thread can depend on an actor in the main thread, or vice versa. This separation allows you to optimize performance without restructuring your application logic.
-
-**See [src/actor/README.md](./src/actor/README.md) for actor implementation details.**
 
 ### ActorClients: The Developer Interface
 
@@ -122,7 +233,52 @@ Each thread (main or worker) has exactly one **ThreadBus** instance responsible 
 
 By centralizing the actor system knowledge on the main thread, worker threads can remain lightweight. They don't need to understand the entire application topology. Instead, they receive targeted messages with actor IDs and simply route to their local actors. This keeps the system scalable even as your actor system grows.
 
-**See [src/busses/README.md](./src/busses/README.md) for message bus implementation details.**
+## Real-Time Collaboration
+
+The `@d-buckner/ensemble-collaboration` package provides CRDT-based collaboration using Automerge:
+
+- 🔄 **Automatic conflict resolution** - Automerge CRDTs handle concurrent edits
+- 🌐 **WebRTC-first with WebSocket fallback** - Low-latency P2P with reliable fallback
+- 🎭 **Actor-based architecture** - Four specialized actors (Collaboration, PeerMessaging, WebSocket, WebRTC)
+- 📦 **Type-safe** - Generic document types with full TypeScript support
+- 🔌 **Framework agnostic** - Works with any transport layer
+
+```typescript
+import { CollaborationActor } from '@d-buckner/ensemble-collaboration';
+
+// Extend CollaborationActor with domain-specific actions
+class TodosActor extends CollaborationActor<TodoDoc> {
+  static readonly initialState: TodoDoc = { todos: [] };
+
+  constructor() {
+    super(TodosActor.initialState);
+  }
+
+  @action
+  addTodo(text: string): void {
+    this.setState(draft => {
+      draft.todos.push({
+        id: `todo-${Date.now()}`,
+        text,
+        done: false
+      });
+    });
+    // Automatically synced with all connected peers!
+  }
+
+  @action
+  toggleTodo(id: string): void {
+    this.setState(draft => {
+      const todo = draft.todos.find(t => t.id === id);
+      if (todo) todo.done = !todo.done;
+    });
+  }
+}
+```
+
+The CRDT document **is** the actor state directly - no wrapper objects. Changes sync automatically through effects, and the actor handles transport abstraction so your code stays clean and focused on business logic.
+
+See the [collaboration package README](./packages/collaboration/README.md) for complete setup instructions and server configuration.
 
 ## Key Design Principles
 
@@ -131,3 +287,42 @@ By centralizing the actor system knowledge on the main thread, worker threads ca
 3. **Scalability**: Centralized routing keeps workers lightweight and focused
 4. **Type safety**: Strong typing throughout the message passing system
 5. **Consistency**: State updates are events, keeping the API uniform
+
+## Examples & Demos
+
+Working examples are available in the `demos/` directory:
+
+**React:**
+- [Counter](./demos/react/counter) - Basic actor with React hooks
+- [Collaboration](./demos/react/collaboration) - Real-time collaborative todo list with CRDT sync
+
+**SolidJS:**
+- [Counter](./demos/solidjs/counter) - Basic actor with SolidJS primitives
+- [Metrics Dashboard](./demos/solidjs/metrics-dashboard) - Performance monitoring dashboard
+
+```bash
+# Run a demo
+npm run demo:react:counter
+npm run demo:solidjs:metrics-dashboard
+```
+
+## Documentation
+
+- **[Core Package](./packages/core/README.md)** - Actor, ActorClient, ActorSystem API
+- **[React Bindings](./packages/react/README.md)** - useActor, useActorState hooks
+- **[SolidJS Bindings](./packages/solidjs/README.md)** - createActor, createActorState primitives
+- **[Vite Plugin](./packages/vite-plugin/README.md)** - Multi-threading configuration
+- **[Collaboration](./packages/collaboration/README.md)** - CRDT collaboration setup
+- **[Performance Guide](./PERFORMANCE.md)** - Optimization strategies and trade-offs
+- **[Design Documents](./designs/README.md)** - Architecture deep-dives
+
+## Contributing
+
+Ensemble is in active development and welcomes contributions!
+
+- **Issues**: [GitHub Issues](https://github.com/d-buckner/ensemble/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/d-buckner/ensemble/discussions)
+
+## License
+
+[Apache 2.0](./LICENSE)
