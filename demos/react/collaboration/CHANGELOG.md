@@ -9,14 +9,3 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 ### Features
 
 * **collaboration:** add working WebSocket collaboration demo with CRDT sync ([063b044](https://github.com/d-buckner/ensemble/commit/063b0444edd56ada1376516b299bca378ec331ed))
-
-
-
-
-
-# 0.1.0 (2025-10-16)
-
-
-### Bug Fixes
-
-* rename version/publish scripts to avoid Lerna lifecycle recursion ([cce23fb](https://github.com/d-buckner/ensemble/commit/cce23fbc538fe6297c99150e42ccfa6d6c0ee732))

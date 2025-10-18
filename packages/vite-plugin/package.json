@@ -1,6 +1,6 @@
 {
   "name": "@d-buckner/ensemble-vite-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vite plugin for Ensemble actor threading with Web Workers",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -46,7 +46,7 @@
     "@babel/parser": "^7.26.3",
     "@babel/traverse": "^7.26.5",
     "@babel/types": "^7.26.3",
-    "@d-buckner/ensemble-core": "^0.1.0",
+    "@d-buckner/ensemble-core": "^0.2.0",
     "@rollup/plugin-commonjs": "^28.0.1",
     "@rollup/plugin-node-resolve": "^15.3.0",
     "@rollup/plugin-replace": "^6.0.1",

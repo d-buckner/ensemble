@@ -1,7 +1,7 @@
 {
   "name": "demo-solidjs-counter",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@d-buckner/ensemble-core": "*",
-    "@d-buckner/ensemble-solidjs": "*",
+    "@d-buckner/ensemble-core": "^0.2.0",
+    "@d-buckner/ensemble-solidjs": "^0.2.0",
     "solid-js": "^1.9.9"
   },
   "devDependencies": {
