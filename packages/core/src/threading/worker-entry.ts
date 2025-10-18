@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import { unpack } from 'msgpackr';
 import WorkerBus from '../messaging/WorkerBus';
 import { Logger } from '../utils/Logger';

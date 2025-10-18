@@ -42,7 +42,7 @@ export interface CollaborationDeps {
  * }
  * ```
  */
-export class CollaborationActor<TDoc extends Record<string, unknown>> extends Actor<TDoc, CollaborationEvents> {
+export class CollaborationActor<TDoc extends Record<string, any> = Record<string, any>> extends Actor<TDoc, CollaborationEvents> {
   // Automerge internals (private, NOT in state)
   private automergeDoc: AutomergeDoc<TDoc>;
   private syncStates = new Map<string, SyncState>();
@@ -78,7 +78,10 @@ export class CollaborationActor<TDoc extends Record<string, unknown>> extends Ac
     // 2. Update actor state via parent (triggers state events)
     const jsDoc = Automerge.toJS(newDoc);
     super.setState(draft => {
-      Object.assign(draft as any, jsDoc);
+      // Directly assign each property to ensure reactivity
+      (Object.keys(jsDoc) as Array<keyof TDoc>).forEach(key => {
+        (draft as TDoc)[key] = jsDoc[key];
+      });
     });
 
     // 3. Generate and send sync messages for peers
@@ -119,7 +122,10 @@ export class CollaborationActor<TDoc extends Record<string, unknown>> extends Ac
       this.automergeDoc = newDoc;
       const jsDoc = Automerge.toJS(newDoc);
       super.setState(draft => {
-        Object.assign(draft as any, jsDoc);
+        // Directly assign each property to ensure reactivity
+        (Object.keys(jsDoc) as Array<keyof TDoc>).forEach(key => {
+          (draft as TDoc)[key] = jsDoc[key];
+        });
       });
     }
 

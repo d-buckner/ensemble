@@ -117,8 +117,9 @@ export class CollaborationServer {
     // Add peer to room
     const peerId = this.roomManager.addPeer(roomId, socket.id);
 
-    // Join Socket.IO room for broadcasting
-    await socket.join(roomId);
+    // Join TWO rooms: shared room + personal peerId room
+    await socket.join(roomId);      // For broadcasts to all peers
+    await socket.join(peerId);       // For targeted messages to this peer
 
     // Send room-peers response to joining peer
     socket.emit('room-peers', {
@@ -190,15 +191,16 @@ export class CollaborationServer {
    */
   async handleWebRTCSignal(socket: Socket, data: { to: string; data: unknown }): Promise<void> {
     const roomId = this.roomManager.getRoomForSocket(socket.id);
-
     if (!roomId) {
       socket.emit('error', { message: 'Not in a room' });
       return;
     }
 
-    // Find the sender's peer ID
-    const peers = this.roomManager.getPeersInRoom(roomId);
-    const fromPeerId = peers.find(() => true); // Simplified - in real impl, track socket->peerId
+    const fromPeerId = this.roomManager.getPeerIdForSocket(socket.id);
+    if (!fromPeerId) {
+      socket.emit('error', { message: 'Peer ID not found' });
+      return;
+    }
 
     // Check interceptor
     if (this.options.interceptor) {
@@ -215,22 +217,13 @@ export class CollaborationServer {
       }
     }
 
-    // Find target socket in the room
-    const targetPeerId = data.to;
-    const sockets = await this.io.in(roomId).fetchSockets();
+    // Send directly to target's personal room (peerId room)
+    socket.to(data.to).emit('webrtc-signal', {
+      from: fromPeerId,
+      data: data.data,
+    });
 
-    for (const targetSocket of sockets) {
-      if (targetSocket.id !== socket.id) {
-        // Check if this socket is the target peer
-        // In a full implementation, we'd maintain a peerId -> socketId mapping
-        targetSocket.emit('webrtc-signal', {
-          from: fromPeerId,
-          data: data.data,
-        });
-      }
-    }
-
-    this.logger.debug?.(`WebRTC signal from ${fromPeerId} to ${targetPeerId} in room ${roomId}`);
+    this.logger.debug?.(`WebRTC signal from ${fromPeerId} to ${data.to} in room ${roomId}`);
   }
 
   /**
@@ -239,14 +232,16 @@ export class CollaborationServer {
    */
   async handleSyncMessage(socket: Socket, data: { to: string; message: number[] }): Promise<void> {
     const roomId = this.roomManager.getRoomForSocket(socket.id);
-
     if (!roomId) {
       socket.emit('error', { message: 'Not in a room' });
       return;
     }
 
-    const peers = this.roomManager.getPeersInRoom(roomId);
-    const fromPeerId = peers.find(() => true); // Simplified
+    const fromPeerId = this.roomManager.getPeerIdForSocket(socket.id);
+    if (!fromPeerId) {
+      socket.emit('error', { message: 'Peer ID not found' });
+      return;
+    }
 
     // Check interceptor
     if (this.options.interceptor) {
@@ -263,20 +258,13 @@ export class CollaborationServer {
       }
     }
 
-    // Find target socket and relay message
-    const targetPeerId = data.to;
-    const sockets = await this.io.in(roomId).fetchSockets();
+    // Send directly to target's personal room (peerId room)
+    socket.to(data.to).emit('sync-message', {
+      from: fromPeerId,
+      message: data.message,
+    });
 
-    for (const targetSocket of sockets) {
-      if (targetSocket.id !== socket.id) {
-        targetSocket.emit('sync-message', {
-          from: fromPeerId,
-          message: data.message,
-        });
-      }
-    }
-
-    this.logger.debug?.(`Sync message from ${fromPeerId} to ${targetPeerId} in room ${roomId}`);
+    this.logger.debug?.(`Sync message from ${fromPeerId} to ${data.to} in room ${roomId}`);
   }
 
   /**

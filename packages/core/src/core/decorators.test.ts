@@ -176,6 +176,76 @@ describe('Decorators', () => {
       expect(metadata.length).toBeGreaterThanOrEqual(1);
       expect(metadata.map(m => m.methodName)).toContain('derivedAction');
     });
+
+    it('should collect effect metadata from parent classes', () => {
+      class ParentActor extends Actor {
+        protected declare deps: { dependency: unknown };
+
+        constructor() {
+          super({});
+        }
+
+        @effect('dependency.parentEvent')
+        parentEffect() {}
+      }
+
+      class ChildActor extends ParentActor {
+        @effect('dependency.childEvent')
+        childEffect() {}
+      }
+
+      const metadata = getEffectMetadata(ChildActor);
+
+      // Should collect effects from both parent and child
+      expect(metadata).toHaveLength(2);
+
+      const methodNames = metadata.map(m => m.methodName);
+      expect(methodNames).toContain('parentEffect');
+      expect(methodNames).toContain('childEffect');
+
+      const parentEffect = metadata.find(m => m.methodName === 'parentEffect');
+      expect(parentEffect?.eventSubscriptions).toEqual([
+        { actorClientKey: 'dependency', eventName: 'parentEvent' }
+      ]);
+
+      const childEffect = metadata.find(m => m.methodName === 'childEffect');
+      expect(childEffect?.eventSubscriptions).toEqual([
+        { actorClientKey: 'dependency', eventName: 'childEvent' }
+      ]);
+    });
+
+    it('should collect effects from multi-level inheritance', () => {
+      class GrandparentActor extends Actor {
+        protected declare deps: { dep: unknown };
+
+        constructor() {
+          super({});
+        }
+
+        @effect('dep.grandparentEvent')
+        grandparentEffect() {}
+      }
+
+      class ParentActor extends GrandparentActor {
+        @effect('dep.parentEvent')
+        parentEffect() {}
+      }
+
+      class ChildActor extends ParentActor {
+        @effect('dep.childEvent')
+        childEffect() {}
+      }
+
+      const metadata = getEffectMetadata(ChildActor);
+
+      // Should collect effects from all three levels
+      expect(metadata).toHaveLength(3);
+
+      const methodNames = metadata.map(m => m.methodName);
+      expect(methodNames).toContain('grandparentEffect');
+      expect(methodNames).toContain('parentEffect');
+      expect(methodNames).toContain('childEffect');
+    });
   });
 
   describe('@thread decorator', () => {

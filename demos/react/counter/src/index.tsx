@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import { ActorSystem } from '@d-buckner/ensemble-core';
 import { EnsembleProvider } from '@d-buckner/ensemble-react';
 import { StrictMode } from 'react';

@@ -108,6 +108,13 @@ export class RoomManager {
   }
 
   /**
+   * Get the peer ID for a socket
+   */
+  getPeerIdForSocket(socketId: string): string | null {
+    return this.socketToPeer.get(socketId) || null;
+  }
+
+  /**
    * Check if a room exists
    */
   hasRoom(roomId: string): boolean {

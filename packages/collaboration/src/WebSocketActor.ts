@@ -160,7 +160,7 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketEvents> {
       this.emit('connectionStateChanged', 'connected');
 
       // Join room after connection
-      this.socket!.emit('join-room', this.state.roomId);
+      this.socket!.emit('join-room', { roomId: this.state.roomId });
     });
 
     this.socket.on('disconnect', () => {
@@ -224,7 +224,12 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketEvents> {
 
     // Error handling
     this.socket.on('connect_error', (error: Error) => {
+      console.error('[WebSocketActor] Connection error:', error.message);
       this.throw('Socket.IO connection error', { error: error.message });
+    });
+
+    this.socket.on('error', (error: any) => {
+      console.error('[WebSocketActor] Server error:', error);
     });
   }
 

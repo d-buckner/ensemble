@@ -1,5 +1,3 @@
-import 'reflect-metadata';
-
 /**
  * Metadata for action methods
  */
@@ -18,9 +16,10 @@ export interface EffectMetadata {
   }>;
 }
 
-const ACTION_METADATA_KEY = Symbol('actor:actions');
-const EFFECT_METADATA_KEY = Symbol('actor:effects');
-const THREAD_METADATA_KEY = Symbol('actor:thread');
+// Metadata storage using WeakMaps for automatic garbage collection
+const actionMetadataMap = new WeakMap<any, ActionMetadata[]>();
+const effectMetadataMap = new WeakMap<any, EffectMetadata[]>();
+const threadMetadataMap = new WeakMap<any, string>();
 
 /**
  * Wraps a method with context management for error tracking
@@ -55,11 +54,11 @@ export function action(
   descriptor: PropertyDescriptor
 ): PropertyDescriptor {
   // Store metadata
-  if (!Reflect.hasMetadata(ACTION_METADATA_KEY, target)) {
-    Reflect.defineMetadata(ACTION_METADATA_KEY, [], target);
+  if (!actionMetadataMap.has(target)) {
+    actionMetadataMap.set(target, []);
   }
 
-  const actions = Reflect.getMetadata(ACTION_METADATA_KEY, target) as ActionMetadata[];
+  const actions = actionMetadataMap.get(target)!;
   actions.push({
     methodName: propertyKey,
   });
@@ -72,7 +71,7 @@ export function action(
  * Extract action metadata from an actor class
  */
 export function getActionMetadata(actorClass: any): ActionMetadata[] {
-  return Reflect.getMetadata(ACTION_METADATA_KEY, actorClass.prototype) || [];
+  return actionMetadataMap.get(actorClass.prototype) ?? [];
 }
 
 /**
@@ -86,11 +85,11 @@ export function effect(...subscriptions: string[]) {
     propertyKey: string,
     descriptor: PropertyDescriptor
   ): PropertyDescriptor {
-    if (!Reflect.hasMetadata(EFFECT_METADATA_KEY, target)) {
-      Reflect.defineMetadata(EFFECT_METADATA_KEY, [], target);
+    if (!effectMetadataMap.has(target)) {
+      effectMetadataMap.set(target, []);
     }
 
-    const effects = Reflect.getMetadata(EFFECT_METADATA_KEY, target) as EffectMetadata[];
+    const effects = effectMetadataMap.get(target)!;
 
     // Parse subscriptions: 'todoActor.todos' -> { actorClientKey: 'todoActor', eventName: 'todos' }
     const eventSubscriptions = subscriptions.map(sub => {
@@ -113,9 +112,38 @@ export function effect(...subscriptions: string[]) {
 
 /**
  * Extract effect metadata from an actor class
+ * Walks the prototype chain to collect effects from parent classes
+ *
+ * Why prototype chain traversal is necessary:
+ * The @effect decorator stores metadata in a WeakMap keyed by the class prototype.
+ * When using inheritance, decorators on the parent class are stored on the parent's
+ * prototype, not the child's. Without walking the prototype chain, effects defined
+ * in base classes would never be registered for child class instances.
+ *
+ * Example:
+ *   class ParentActor extends Actor {
+ *     @effect('dep.event')           // Stored on ParentActor.prototype
+ *     handleEvent() {}
+ *   }
+ *
+ *   class ChildActor extends ParentActor {}
+ *
+ * Without prototype chain traversal, getEffectMetadata(ChildActor) would only check
+ * ChildActor.prototype and miss the effect defined in ParentActor.
  */
 export function getEffectMetadata(actorClass: any): EffectMetadata[] {
-  return Reflect.getMetadata(EFFECT_METADATA_KEY, actorClass.prototype) || [];
+  const effects: EffectMetadata[] = [];
+  let currentProto = actorClass.prototype;
+
+  while (currentProto && currentProto !== Object.prototype) {
+    const protoEffects = effectMetadataMap.get(currentProto);
+    if (protoEffects) {
+      effects.push(...protoEffects);
+    }
+    currentProto = Object.getPrototypeOf(currentProto);
+  }
+
+  return effects;
 }
 
 /**
@@ -128,7 +156,7 @@ export function getEffectMetadata(actorClass: any): EffectMetadata[] {
  */
 export function thread(threadId: string) {
   return function<T extends { new(...args: any[]): {} }>(constructor: T) {
-    Reflect.defineMetadata(THREAD_METADATA_KEY, threadId, constructor);
+    threadMetadataMap.set(constructor, threadId);
     return constructor;
   };
 }
@@ -138,5 +166,5 @@ export function thread(threadId: string) {
  * Returns undefined if no @thread decorator was used (defaults to main thread)
  */
 export function getThreadMetadata(actorClass: any): string | undefined {
-  return Reflect.getMetadata(THREAD_METADATA_KEY, actorClass);
+  return threadMetadataMap.get(actorClass);
 }

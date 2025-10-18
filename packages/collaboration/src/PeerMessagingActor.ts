@@ -49,7 +49,7 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
 
   /**
    * Send a message to a specific peer via the appropriate transport.
-   * Automatically falls back to WebSocket if WebRTC fails.
+   * Automatically falls back to WebSocket if WebRTC not connected.
    *
    * @param peerId - ID of the peer to send to
    * @param message - Message payload (typically Automerge sync message)
@@ -62,13 +62,15 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
       return;
     }
 
+    // Check WebRTC connection state before attempting to use it
     if (transport === 'webrtc') {
-      try {
+      const webrtcState = this.deps.webrtc.state.peerConnectionStates[peerId];
+      if (webrtcState === 'connected') {
         this.deps.webrtc.actions.sendTo(peerId, message);
-      } catch (_error) {
-        // WebRTC failed, fallback to WebSocket
-        this.deps.websocket.actions.sendTo(peerId, message);
+        return;
       }
+      // WebRTC not connected, fallback to WebSocket
+      this.deps.websocket.actions.sendTo(peerId, message);
       return;
     }
 
@@ -94,6 +96,7 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
   /**
    * Handle peer joined via WebSocket.
    * Adds peer to state with WebSocket transport and emits peerConnected.
+   * Also initiates WebRTC connection attempt.
    */
   @effect('websocket.peerJoined')
   private handleWebSocketPeerJoined(peerId: string): void {
@@ -107,11 +110,15 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
     });
 
     this.emit('peerConnected', peerId);
+
+    // Initiate WebRTC connection
+    this.deps.webrtc.actions.connectToPeer(peerId);
   }
 
   /**
    * Handle peer left via WebSocket.
    * Removes peer from state and emits peerDisconnected.
+   * Also disconnects WebRTC connection.
    */
   @effect('websocket.peerLeft')
   private handleWebSocketPeerLeft(peerId: string): void {
@@ -124,16 +131,19 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
       delete draft.peerTransports[peerId];
     });
 
+    // Disconnect WebRTC
+    this.deps.webrtc.actions.disconnectPeer(peerId);
+
     this.emit('peerDisconnected', peerId);
   }
 
   /**
    * Handle WebSocket signaling message.
-   * Forwards signaling data to WebRTCActor via signalingReceived event.
+   * Forwards signaling data directly to WebRTCActor.
    */
   @effect('websocket.signalingMessage')
   private handleWebSocketSignaling(payload: SignalingPayload): void {
-    this.emit('signalingReceived', payload);
+    this.deps.webrtc.actions.handleSignaling(payload);
   }
 
   /**

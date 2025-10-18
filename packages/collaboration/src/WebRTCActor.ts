@@ -1,11 +1,9 @@
-import { Actor, action, effect } from '@d-buckner/ensemble-core';
-import type { PeerMessagingActor } from './PeerMessagingActor';
+import { Actor, action } from '@d-buckner/ensemble-core';
 import type {
   WebRTCState,
   WebRTCEvents,
   SignalingPayload,
 } from './types';
-import type { IActorClient } from '@d-buckner/ensemble-core';
 
 /**
  * Simple peer interface (compatible with simple-peer library)
@@ -30,11 +28,9 @@ interface SimplePeerConstructor {
 }
 
 /**
- * Dependencies for WebRTCActor
+ * WebRTCActor has no dependencies - it's a pure transport layer
+ * PeerMessagingActor coordinates by calling its actions
  */
-export interface WebRTCDeps {
-  peerMessaging: IActorClient<PeerMessagingActor>;
-}
 
 /**
  * Configuration for WebRTCActor
@@ -72,8 +68,6 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
     peerConnectionStates: {},
   };
 
-  protected declare deps: WebRTCDeps;
-
   private peers = new Map<string, SimplePeer>();
   private SimplePeer: SimplePeerConstructor | null = null;
   private peerId: string = '';
@@ -103,11 +97,10 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
 
   /**
    * Send a message to a specific peer via WebRTC data channel.
-   * Throws error if peer not connected (PeerMessagingActor handles fallback).
+   * Silently fails if peer not connected (caller should check state first).
    *
    * @param peerId - ID of the peer to send to
    * @param message - Message payload (Automerge sync message)
-   * @throws Error if peer not connected
    */
   @action
   sendTo(peerId: string, message: Uint8Array): void {
@@ -115,22 +108,26 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
     const state = this.state.peerConnectionStates[peerId];
 
     if (!peer || state !== 'connected') {
-      throw new Error(`WebRTC peer ${peerId} not connected`);
+      // Silently fail - PeerMessagingActor checks state before calling
+      return;
     }
 
     peer.send(message);
   }
 
   // ========================================
-  // Effects: PeerMessaging events
+  // Actions: Peer connection management (called by PeerMessagingActor)
   // ========================================
 
   /**
-   * Create a WebRTC peer connection when a new peer joins.
+   * Create a WebRTC peer connection to a specific peer.
+   * Called by PeerMessagingActor when a new peer joins.
    * Uses lexicographic comparison to determine initiator.
+   *
+   * @param peerId - ID of the peer to connect to
    */
-  @effect('peerMessaging.peerConnected')
-  private handlePeerConnected(peerId: string): void {
+  @action
+  connectToPeer(peerId: string): void {
     if (!this.SimplePeer || !this.peerId) {
       return;
     }
@@ -152,24 +149,29 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
   }
 
   /**
-   * Handle incoming WebRTC signaling data.
-   * Forwards to the appropriate peer instance.
+   * Handle incoming WebRTC signaling data for a peer.
+   * Called by PeerMessagingActor when signaling is received from server.
+   *
+   * @param payload - Signaling payload with peer ID and signaling data
    */
-  @effect('peerMessaging.signalingReceived')
-  private handleSignalingReceived({ peerId, data }: SignalingPayload): void {
-    const peer = this.peers.get(peerId);
+  @action
+  handleSignaling(payload: SignalingPayload): void {
+    const peer = this.peers.get(payload.peerId);
     if (!peer) {
       return;
     }
 
-    peer.signal(data);
+    peer.signal(payload.data);
   }
 
   /**
-   * Clean up peer connection when peer disconnects.
+   * Disconnect from a specific peer.
+   * Called by PeerMessagingActor when peer leaves.
+   *
+   * @param peerId - ID of the peer to disconnect from
    */
-  @effect('peerMessaging.peerDisconnected')
-  private handlePeerDisconnected(peerId: string): void {
+  @action
+  disconnectPeer(peerId: string): void {
     const peer = this.peers.get(peerId);
     if (peer) {
       peer.destroy();
