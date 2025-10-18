@@ -94,20 +94,17 @@ const system = new ActorSystem();
 system.register({
   token: WebSocketToken,
   actor: WebSocketActor,
-  constructorParams: { url: 'http://localhost:3000', roomId: 'my-room' }
+});
+
+system.register({
+  token: WebRTCToken,
+  actor: WebRTCActor,
 });
 
 system.register({
   token: PeerMessagingToken,
   actor: PeerMessagingActor,
   dependencies: { websocket: WebSocketToken, webrtc: WebRTCToken }
-});
-
-system.register({
-  token: WebRTCToken,
-  actor: WebRTCActor,
-  constructorParams: { SimplePeer, peerId: 'my-peer-id' },
-  dependencies: { peerMessaging: PeerMessagingToken }
 });
 
 system.register({
@@ -118,9 +115,12 @@ system.register({
 
 await system.start();
 
-// 4. Connect to start collaborating
-const websocket = system.get(WebSocketToken);
-websocket.actions.connect();
+// 4. Initialize WebSocket connection
+const websocket = system.getClient(WebSocketToken);
+websocket?.actions.initialize({
+  url: 'http://localhost:3001',
+  roomId: 'demo-room'
+});
 ```
 
 ## React Integration

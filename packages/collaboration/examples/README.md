@@ -193,7 +193,6 @@ const WebRTCToken = createActorToken<WebRTCActor>('webrtc');
 system.register({
   token: WebRTCToken,
   actor: WebRTCActor,
-  constructorParams: { SimplePeer, peerId: clientName },
   dependencies: { peerMessaging: PeerMessagingToken }
 });
 
