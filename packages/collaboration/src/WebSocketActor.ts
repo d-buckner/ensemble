@@ -5,6 +5,7 @@ import type {
   WebSocketEvents,
   WebSocketConfig,
 } from './types';
+import type { SignalData } from '@d-buckner/peer-pressure';
 
 /**
  * WebSocketActor - Socket.IO client for signaling and fallback transport
@@ -205,7 +206,7 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketEvents> {
     });
 
     // WebRTC signaling
-    this.socket.on('webrtc-signal', (data: { from: string; data: unknown }) => {
+    this.socket.on('webrtc-signal', (data: { from: string; data: SignalData }) => {
       this.emit('signalingMessage', {
         peerId: data.from,
         data: data.data,

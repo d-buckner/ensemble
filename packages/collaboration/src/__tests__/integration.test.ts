@@ -2,12 +2,14 @@ import { ActorSystem, createActorToken, action } from '@d-buckner/ensemble-core'
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CollaborationActor } from '../CollaborationActor';
 import { PeerMessagingActor } from '../PeerMessagingActor';
+import { WebRTCActor } from '../WebRTCActor';
+import { WebSocketActor } from '../WebSocketActor';
 
 /**
  * Integration tests for the full collaboration stack.
  *
- * These tests verify that multiple CollaborationActors can sync state
- * through PeerMessagingActor, simulating real peer-to-peer collaboration.
+ * These tests verify that multiple CollaborationActors can work together
+ * within a complete actor system hierarchy.
  */
 
 // Test document type
@@ -50,149 +52,142 @@ class CounterActor extends CollaborationActor<CounterDoc> {
       draft.lastEditor = editorId;
     });
   }
+
+  @action
+  reset(): void {
+    this.setState(draft => {
+      draft.count = 0;
+      draft.lastEditor = null;
+    });
+  }
 }
 
-describe('Integration: Two-Peer Collaboration', () => {
-  let system1: ActorSystem;
-  let system2: ActorSystem;
+describe('Integration: Full Actor Hierarchy', () => {
+  let system: ActorSystem;
 
-  const PeerMessaging1Token = createActorToken<PeerMessagingActor>('peerMessaging1');
-  const PeerMessaging2Token = createActorToken<PeerMessagingActor>('peerMessaging2');
-  const Counter1Token = createActorToken<CounterActor>('counter1');
-  const Counter2Token = createActorToken<CounterActor>('counter2');
+  const CounterToken = createActorToken<CounterActor>('counter');
+  const PeerMessagingToken = createActorToken<PeerMessagingActor>('peerMessaging');
+  const WebSocketToken = createActorToken<WebSocketActor>('websocket');
+  const WebRTCToken = createActorToken<WebRTCActor>('webrtc');
 
   beforeEach(async () => {
-    // Create two actor systems (simulating two peers)
-    system1 = new ActorSystem();
-    system2 = new ActorSystem();
+    system = new ActorSystem();
 
-    // System 1: PeerMessagingActor + CounterActor
-    system1.register({
-      token: PeerMessaging1Token,
+    // Build complete actor hierarchy
+    system.register({
+      token: WebSocketToken,
+      actor: WebSocketActor,
+    });
+
+    system.register({
+      token: WebRTCToken,
+      actor: WebRTCActor,
+    });
+
+    system.register({
+      token: PeerMessagingToken,
       actor: PeerMessagingActor,
+      dependencies: { websocket: WebSocketToken, webrtc: WebRTCToken },
     });
 
-    system1.register({
-      token: Counter1Token,
+    system.register({
+      token: CounterToken,
       actor: CounterActor,
-      dependencies: { connection: PeerMessaging1Token },
+      dependencies: { connection: PeerMessagingToken },
     });
 
-    // System 2: PeerMessagingActor + CounterActor
-    system2.register({
-      token: PeerMessaging2Token,
-      actor: PeerMessagingActor,
-    });
-
-    system2.register({
-      token: Counter2Token,
-      actor: CounterActor,
-      dependencies: { connection: PeerMessaging2Token },
-    });
-
-    await system1.start();
-    await system2.start();
+    await system.start();
   });
 
-  it('should sync state between two peers when connected', async () => {
-    const counter1 = system1.getClient(Counter1Token);
-    const counter2 = system2.getClient(Counter2Token);
-    const messaging1 = system1.getClient(PeerMessaging1Token);
-    const messaging2 = system2.getClient(PeerMessaging2Token);
+  it('should initialize full actor stack', () => {
+    const counter = system.getClient(CounterToken);
+    const messaging = system.getClient(PeerMessagingToken);
+    const websocket = system.getClient(WebSocketToken);
+    const webrtc = system.getClient(WebRTCToken);
 
-    expect(counter1).not.toBeNull();
-    expect(counter2).not.toBeNull();
-    expect(messaging1).not.toBeNull();
-    expect(messaging2).not.toBeNull();
-
-    // Initially, both counters should be at 0
-    expect(counter1!.state.count).toBe(0);
-    expect(counter2!.state.count).toBe(0);
-
-    // Simulate peer connection by manually connecting the messaging layers
-    // In real usage, this would happen through WebSocket/WebRTC
-    messaging1!.actions.sendTo = (_peerId: string, _message: Uint8Array) => {
-      // Forward to peer 2
-      const _client2 = system2.getClient(Counter2Token);
-      // Simulate message reception by directly calling the effect
-      // This is a simplification - in real usage, the message would go through the transport layer
-    };
-
-    // For this basic test, we'll just verify that the actors can operate independently
-    // Full integration testing would require mocking the WebSocket/WebRTC layer
-
-    // Peer 1 increments
-    counter1!.actions.increment('peer1');
-    await new Promise(resolve => setTimeout(resolve, 10));
-
-    expect(counter1!.state.count).toBe(1);
-    expect(counter1!.state.lastEditor).toBe('peer1');
-
-    // Peer 2 increments independently
-    counter2!.actions.increment('peer2');
-    await new Promise(resolve => setTimeout(resolve, 10));
-
-    expect(counter2!.state.count).toBe(1);
-    expect(counter2!.state.lastEditor).toBe('peer2');
+    expect(counter).not.toBeNull();
+    expect(messaging).not.toBeNull();
+    expect(websocket).not.toBeNull();
+    expect(webrtc).not.toBeNull();
   });
 
-  it('should handle multiple operations on same peer', async () => {
-    const counter1 = system1.getClient(Counter1Token);
-    expect(counter1).not.toBeNull();
+  it('should have correct dependency hierarchy', () => {
+    const counter = system.getClient(CounterToken);
+    const messaging = system.getClient(PeerMessagingToken);
 
-    // Perform multiple operations
-    counter1!.actions.increment('peer1');
-    counter1!.actions.increment('peer1');
-    counter1!.actions.add(5, 'peer1');
-    counter1!.actions.decrement('peer1');
+    expect(counter).not.toBeNull();
+    expect(messaging).not.toBeNull();
 
-    await new Promise(resolve => setTimeout(resolve, 10));
-
-    // 0 + 1 + 1 + 5 - 1 = 6
-    expect(counter1!.state.count).toBe(6);
-    expect(counter1!.state.lastEditor).toBe('peer1');
+    // Counter depends on PeerMessaging
+    // PeerMessaging depends on WebSocket and WebRTC
+    expect(counter!.state).toBeDefined();
+    expect(messaging!.state).toBeDefined();
   });
 
-  it('should maintain independent state without connection', async () => {
-    const counter1 = system1.getClient(Counter1Token);
-    const counter2 = system2.getClient(Counter2Token);
+  it('should maintain state isolation between actors', async () => {
+    const counter = system.getClient(CounterToken)!;
+    const messaging = system.getClient(PeerMessagingToken)!;
 
-    expect(counter1).not.toBeNull();
-    expect(counter2).not.toBeNull();
+    counter.actions.increment('test');
+    await flushMicrotask();
 
-    // Peer 1 performs operations
-    counter1!.actions.add(10, 'peer1');
-    await new Promise(resolve => setTimeout(resolve, 10));
+    // Counter state changes
+    expect(counter.state.count).toBe(1);
 
-    // Peer 2 performs different operations
-    counter2!.actions.add(20, 'peer2');
-    await new Promise(resolve => setTimeout(resolve, 10));
+    // Messaging state remains unchanged
+    expect(messaging.state.connectedPeers.length).toBe(0);
+  });
 
-    // Without connection, states remain independent
-    expect(counter1!.state.count).toBe(10);
-    expect(counter1!.state.lastEditor).toBe('peer1');
+  it('should handle multiple operations across actor hierarchy', async () => {
+    const counter = system.getClient(CounterToken)!;
 
-    expect(counter2!.state.count).toBe(20);
-    expect(counter2!.state.lastEditor).toBe('peer2');
+    counter.actions.increment('editor1');
+    counter.actions.increment('editor2');
+    counter.actions.add(5, 'editor3');
+    await flushMicrotask();
+
+    expect(counter.state.count).toBe(7);
+    expect(counter.state.lastEditor).toBe('editor3');
+  });
+
+  it('should allow actions on different actors independently', async () => {
+    const counter = system.getClient(CounterToken)!;
+    const messaging = system.getClient(PeerMessagingToken)!;
+
+    counter.actions.add(10, 'test');
+    messaging.actions.sendTo('peer-1', new Uint8Array([1, 2, 3]));
+
+    await flushMicrotask();
+
+    expect(counter.state.count).toBe(10);
+    expect(() => messaging.actions.broadcast(new Uint8Array([4, 5, 6]))).not.toThrow();
   });
 });
 
-describe('Integration: CollaborationActor Isolation', () => {
-  /**
-   * These tests verify that CollaborationActor properly isolates
-   * its Automerge internals from the public state.
-   */
-
+describe('Integration: Collaboration Actor Isolation', () => {
   let system: ActorSystem;
   const CounterToken = createActorToken<CounterActor>('counter');
   const PeerMessagingToken = createActorToken<PeerMessagingActor>('peerMessaging');
+  const WebSocketToken = createActorToken<WebSocketActor>('websocket');
+  const WebRTCToken = createActorToken<WebRTCActor>('webrtc');
 
   beforeEach(async () => {
     system = new ActorSystem();
 
     system.register({
+      token: WebSocketToken,
+      actor: WebSocketActor,
+    });
+
+    system.register({
+      token: WebRTCToken,
+      actor: WebRTCActor,
+    });
+
+    system.register({
       token: PeerMessagingToken,
       actor: PeerMessagingActor,
+      dependencies: { websocket: WebSocketToken, webrtc: WebRTCToken },
     });
 
     system.register({
@@ -226,7 +221,7 @@ describe('Integration: CollaborationActor Isolation', () => {
       counter!.actions.increment(`editor-${i}`);
     }
 
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await flushMicrotask();
 
     expect(counter!.state.count).toBe(10);
     expect(counter!.state.lastEditor).toBe('editor-9');
@@ -238,16 +233,245 @@ describe('Integration: CollaborationActor Isolation', () => {
 
     // Sequence of operations
     counter!.actions.add(100, 'editor1');
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await flushMicrotask();
 
     counter!.actions.decrement('editor2');
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await flushMicrotask();
 
     counter!.actions.increment('editor3');
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await flushMicrotask();
 
     // Final state: 100 - 1 + 1 = 100
     expect(counter!.state.count).toBe(100);
     expect(counter!.state.lastEditor).toBe('editor3');
+  });
+
+  it('should handle state resets', async () => {
+    const counter = system.getClient(CounterToken)!;
+
+    counter.actions.add(50, 'editor1');
+    await flushMicrotask();
+
+    expect(counter.state.count).toBe(50);
+
+    counter.actions.reset();
+    await flushMicrotask();
+
+    expect(counter.state.count).toBe(0);
+    expect(counter.state.lastEditor).toBeNull();
+  });
+});
+
+describe('Integration: Multi-Actor Coordination', () => {
+  let system: ActorSystem;
+  const Counter1Token = createActorToken<CounterActor>('counter1');
+  const Counter2Token = createActorToken<CounterActor>('counter2');
+  const PeerMessagingToken = createActorToken<PeerMessagingActor>('peerMessaging');
+  const WebSocketToken = createActorToken<WebSocketActor>('websocket');
+  const WebRTCToken = createActorToken<WebRTCActor>('webrtc');
+
+  beforeEach(async () => {
+    system = new ActorSystem();
+
+    system.register({
+      token: WebSocketToken,
+      actor: WebSocketActor,
+    });
+
+    system.register({
+      token: WebRTCToken,
+      actor: WebRTCActor,
+    });
+
+    system.register({
+      token: PeerMessagingToken,
+      actor: PeerMessagingActor,
+      dependencies: { websocket: WebSocketToken, webrtc: WebRTCToken },
+    });
+
+    // Register two separate CollaborationActors
+    system.register({
+      token: Counter1Token,
+      actor: CounterActor,
+      dependencies: { connection: PeerMessagingToken },
+    });
+
+    system.register({
+      token: Counter2Token,
+      actor: CounterActor,
+      dependencies: { connection: PeerMessagingToken },
+    });
+
+    await system.start();
+  });
+
+  it('should maintain independent state for multiple collaboration actors', async () => {
+    const counter1 = system.getClient(Counter1Token)!;
+    const counter2 = system.getClient(Counter2Token)!;
+
+    counter1.actions.add(10, 'editor1');
+    counter2.actions.add(20, 'editor2');
+    await flushMicrotask();
+
+    expect(counter1.state.count).toBe(10);
+    expect(counter2.state.count).toBe(20);
+  });
+
+  it('should handle concurrent operations on different actors', async () => {
+    const counter1 = system.getClient(Counter1Token)!;
+    const counter2 = system.getClient(Counter2Token)!;
+
+    // Perform operations on both concurrently
+    counter1.actions.increment('editor1');
+    counter2.actions.decrement('editor2');
+    counter1.actions.add(5, 'editor1');
+    counter2.actions.add(10, 'editor2');
+
+    await flushMicrotask();
+
+    // Counter1: 0 + 1 + 5 = 6
+    expect(counter1.state.count).toBe(6);
+    // Counter2: 0 - 1 + 10 = 9
+    expect(counter2.state.count).toBe(9);
+  });
+
+  it('should allow reset on one actor without affecting others', async () => {
+    const counter1 = system.getClient(Counter1Token)!;
+    const counter2 = system.getClient(Counter2Token)!;
+
+    counter1.actions.add(100, 'editor1');
+    counter2.actions.add(200, 'editor2');
+    await flushMicrotask();
+
+    counter1.actions.reset();
+    await flushMicrotask();
+
+    expect(counter1.state.count).toBe(0);
+    expect(counter2.state.count).toBe(200);
+  });
+
+  it('should maintain state consistency with rapid operations on multiple actors', async () => {
+    const counter1 = system.getClient(Counter1Token)!;
+    const counter2 = system.getClient(Counter2Token)!;
+
+    // Rapidly alternate operations
+    for (let i = 0; i < 5; i++) {
+      counter1.actions.increment('editor1');
+      counter2.actions.increment('editor2');
+    }
+
+    await flushMicrotask();
+
+    expect(counter1.state.count).toBe(5);
+    expect(counter2.state.count).toBe(5);
+  });
+});
+
+describe('Integration: Error Handling and Edge Cases', () => {
+  let system: ActorSystem;
+  const CounterToken = createActorToken<CounterActor>('counter');
+  const PeerMessagingToken = createActorToken<PeerMessagingActor>('peerMessaging');
+  const WebSocketToken = createActorToken<WebSocketActor>('websocket');
+  const WebRTCToken = createActorToken<WebRTCActor>('webrtc');
+
+  beforeEach(async () => {
+    system = new ActorSystem();
+
+    system.register({
+      token: WebSocketToken,
+      actor: WebSocketActor,
+    });
+
+    system.register({
+      token: WebRTCToken,
+      actor: WebRTCActor,
+    });
+
+    system.register({
+      token: PeerMessagingToken,
+      actor: PeerMessagingActor,
+      dependencies: { websocket: WebSocketToken, webrtc: WebRTCToken },
+    });
+
+    system.register({
+      token: CounterToken,
+      actor: CounterActor,
+      dependencies: { connection: PeerMessagingToken },
+    });
+
+    await system.start();
+  });
+
+  it('should handle large value additions', async () => {
+    const counter = system.getClient(CounterToken)!;
+
+    counter.actions.add(1000000, 'editor');
+    await flushMicrotask();
+
+    expect(counter.state.count).toBe(1000000);
+  });
+
+  it('should handle negative values', async () => {
+    const counter = system.getClient(CounterToken)!;
+
+    counter.actions.add(-50, 'editor');
+    await flushMicrotask();
+
+    expect(counter.state.count).toBe(-50);
+  });
+
+  it('should handle zero value operations', async () => {
+    const counter = system.getClient(CounterToken)!;
+
+    counter.actions.add(0, 'editor');
+    await flushMicrotask();
+
+    expect(counter.state.count).toBe(0);
+    expect(counter.state.lastEditor).toBe('editor');
+  });
+
+  it('should handle empty string editor IDs', async () => {
+    const counter = system.getClient(CounterToken)!;
+
+    counter.actions.increment('');
+    await flushMicrotask();
+
+    expect(counter.state.count).toBe(1);
+    expect(counter.state.lastEditor).toBe('');
+  });
+
+  it('should maintain state through alternating increment/decrement', async () => {
+    const counter = system.getClient(CounterToken)!;
+
+    for (let i = 0; i < 10; i++) {
+      counter.actions.increment('up');
+      counter.actions.decrement('down');
+    }
+
+    await flushMicrotask();
+
+    // Should cancel out to 0
+    expect(counter.state.count).toBe(0);
+    expect(counter.state.lastEditor).toBe('down');
+  });
+
+  it('should handle rapid state changes without data loss', async () => {
+    const counter = system.getClient(CounterToken)!;
+
+    const operations = [
+      () => counter.actions.add(10, 'op1'),
+      () => counter.actions.increment('op2'),
+      () => counter.actions.decrement('op3'),
+      () => counter.actions.add(5, 'op4'),
+      () => counter.actions.reset(),
+      () => counter.actions.add(100, 'op5'),
+    ];
+
+    operations.forEach(op => op());
+    await flushMicrotask();
+
+    // After reset, only the last add should count
+    expect(counter.state.count).toBe(100);
+    expect(counter.state.lastEditor).toBe('op5');
   });
 });

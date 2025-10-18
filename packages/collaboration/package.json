@@ -51,17 +51,17 @@
   },
   "dependencies": {
     "@automerge/automerge": "^2.2.8",
+    "@d-buckner/peer-pressure": "^0.2.0",
     "mutative": "^1.3.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.7.0"
   },
   "peerDependencies": {
-    "@d-buckner/ensemble-core": "^0.1.0",
-    "simple-peer": "^9.11.0"
+    "@d-buckner/ensemble-core": "*"
   },
   "devDependencies": {
-    "@d-buckner/ensemble-core": "^0.2.0",
-    "@d-buckner/ensemble-vite-plugin": "^0.2.0",
+    "@d-buckner/ensemble-core": "*",
+    "@d-buckner/ensemble-vite-plugin": "*",
     "concurrently": "^9.1.2",
     "tsx": "^4.19.2",
     "typescript": "~5.9.3",

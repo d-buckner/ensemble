@@ -36,7 +36,7 @@ npm install @d-buckner/ensemble-collaboration @d-buckner/ensemble-core
 ### Peer Dependencies
 
 ```bash
-npm install @automerge/automerge socket.io-client simple-peer
+npm install @automerge/automerge socket.io-client
 ```
 
 ## Quick Start
@@ -44,7 +44,6 @@ npm install @automerge/automerge socket.io-client simple-peer
 ```typescript
 import { CollaborationActor, PeerMessagingActor, WebSocketActor, WebRTCActor } from '@d-buckner/ensemble-collaboration';
 import { createActorToken, ActorSystem, action } from '@d-buckner/ensemble-core';
-import SimplePeer from 'simple-peer';
 
 // 1. Define your document type
 interface TodoDoc {
@@ -258,7 +257,7 @@ Socket.IO client for signaling and fallback transport.
 
 ### WebRTCActor
 
-WebRTC P2P transport using simple-peer.
+WebRTC P2P transport using my [peer-pressure](https://github.com/d-buckner/peer-pressure) library.
 
 **Actions:**
 - `sendTo(peerId, message)` - Send via WebRTC data channel
@@ -268,14 +267,6 @@ WebRTC P2P transport using simple-peer.
 - `peerDisconnected: string` - WebRTC connection closed
 - `messageReceived: { peerId, message }` - Data from peer
 - `signalingData: { peerId, data }` - Outbound signaling for peer
-
-## Bundle Size
-
-- Automerge: ~27KB gzipped
-- Socket.IO client: ~20KB gzipped
-- Simple-peer: ~6KB gzipped
-- Package code: ~5KB gzipped
-- **Total**: ~58KB gzipped (only when imported)
 
 ## License
 

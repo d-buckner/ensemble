@@ -293,3 +293,58 @@ header p {
   color: #666;
   font-size: 0.9rem;
 }
+
+/* Compact Transport Status */
+.transport-status {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.transport-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: help;
+  transition: all 0.2s;
+}
+
+.transport-chip.webrtc {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #81c784;
+}
+
+.transport-chip.websocket {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #64b5f6;
+}
+
+.transport-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.transport-chip.webrtc:hover {
+  background: #c8e6c9;
+}
+
+.transport-chip.websocket:hover {
+  background: #bbdefb;
+}
+
+.transport-icon {
+  font-size: 1rem;
+}
+
+.transport-label {
+  font-size: 0.8rem;
+  letter-spacing: 0.3px;
+}

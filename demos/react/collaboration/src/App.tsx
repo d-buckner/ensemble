@@ -42,6 +42,7 @@ export function App() {
   const isConnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
   const isDisconnected = connectionState === 'disconnected';
   const connectedPeers = peerMessaging.state.connectedPeers || [];
+  const peerTransports = peerMessaging.state.peerTransports || {};
 
   // Show loading screen while connecting
   if (isConnecting) {
@@ -112,6 +113,23 @@ export function App() {
             Disconnect
           </button>
         </div>
+
+        {/* Compact Transport Status */}
+        {connectedPeers.length > 0 && (
+          <div className="transport-status">
+            {connectedPeers.map((peerId) => {
+              const transport = peerTransports[peerId] || 'websocket';
+              const isWebRTC = transport === 'webrtc';
+
+              return (
+                <span key={peerId} className={`transport-chip ${transport}`} title={`Peer ${peerId.substring(0, 8)}`}>
+                  <span className="transport-icon">{isWebRTC ? '⚡' : '🌐'}</span>
+                  <span className="transport-label">{isWebRTC ? 'WebRTC' : 'WebSocket'}</span>
+                </span>
+              );
+            })}
+          </div>
+        )}
       </header>
 
       <main>

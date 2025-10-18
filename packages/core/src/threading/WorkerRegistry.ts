@@ -18,7 +18,7 @@ export class WorkerRegistry {
       try {
         const { WORKER_PATHS } = await import('virtual:worker-manifest');
         this.workerPaths = WORKER_PATHS;
-      } catch (error) {
+      } catch {
         throw new Error(
           'Failed to load worker manifest. If you are using @thread decorators, ' +
           'you must configure @d-buckner/ensemble-vite-plugin in your vite.config.ts. ' +

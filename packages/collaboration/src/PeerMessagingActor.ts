@@ -96,7 +96,7 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
   /**
    * Handle peer joined via WebSocket.
    * Adds peer to state with WebSocket transport and emits peerConnected.
-   * Also initiates WebRTC connection attempt.
+   * Also initiates WebRTC connection as the initiator.
    */
   @effect('websocket.peerJoined')
   private handleWebSocketPeerJoined(peerId: string): void {

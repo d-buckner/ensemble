@@ -1,55 +1,20 @@
 import { Actor, action } from '@d-buckner/ensemble-core';
+import Peer from '@d-buckner/peer-pressure';
 import type {
   WebRTCState,
   WebRTCEvents,
   SignalingPayload,
 } from './types';
-
-/**
- * Simple peer interface (compatible with simple-peer library)
- * This provides a type-safe interface for WebRTC peer connections
- */
-interface SimplePeer {
-  on(event: 'signal', handler: (data: unknown) => void): void;
-  on(event: 'connect', handler: () => void): void;
-  on(event: 'data', handler: (data: Uint8Array) => void): void;
-  on(event: 'close', handler: () => void): void;
-  on(event: 'error', handler: (error: Error) => void): void;
-  signal(data: unknown): void;
-  send(data: Uint8Array): void;
-  destroy(): void;
-}
-
-/**
- * SimplePeer constructor interface
- */
-interface SimplePeerConstructor {
-  new (config: { initiator: boolean }): SimplePeer;
-}
+import type { SignalData } from '@d-buckner/peer-pressure';
 
 /**
  * WebRTCActor has no dependencies - it's a pure transport layer
  * PeerMessagingActor coordinates by calling its actions
  */
 
-/**
- * Configuration for WebRTCActor
- */
-export interface WebRTCConfig {
-  /**
-   * SimplePeer constructor (or compatible library like peer-pressure)
-   * Must be provided as peer libraries typically don't work in server-side contexts
-   */
-  SimplePeer: SimplePeerConstructor;
-
-  /**
-   * Peer ID for this client (assigned by server)
-   */
-  peerId: string;
-}
 
 /**
- * WebRTCActor - WebRTC P2P transport using simple-peer (or peer-pressure)
+ * WebRTCActor - WebRTC P2P transport using peer-pressure
  *
  * Responsibilities:
  * - Manages WebRTC peer connections via data channels
@@ -68,27 +33,13 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
     peerConnectionStates: {},
   };
 
-  private peers = new Map<string, SimplePeer>();
-  private SimplePeer: SimplePeerConstructor | null = null;
-  private peerId: string = '';
+  private peers = new Map<string, Peer>();
 
   /**
    * Create a new WebRTCActor
    */
   constructor() {
     super(WebRTCActor.initialState);
-  }
-
-  /**
-   * Initialize the WebRTC configuration.
-   * Must be called before any peer connections are established.
-   *
-   * @param config - Configuration with SimplePeer constructor and peer ID
-   */
-  @action
-  initialize(config: WebRTCConfig): void {
-    this.SimplePeer = config.SimplePeer;
-    this.peerId = config.peerId;
   }
 
   // ========================================
@@ -120,30 +71,24 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
   // ========================================
 
   /**
-   * Create a WebRTC peer connection to a specific peer.
-   * Called by PeerMessagingActor when a new peer joins.
-   * Uses lexicographic comparison to determine initiator.
+   * Create a WebRTC peer connection to a specific peer as the initiator.
+   * Called by PeerMessagingActor when a new peer joins the room.
+   *
+   * The initiator creates the offer and starts the WebRTC handshake.
    *
    * @param peerId - ID of the peer to connect to
    */
   @action
   connectToPeer(peerId: string): void {
-    if (!this.SimplePeer || !this.peerId) {
-      return;
-    }
-
     if (this.peers.has(peerId)) {
       return;
     }
-
-    // Deterministic initiator selection: lexicographic comparison
-    const isInitiator = this.peerId < peerId;
 
     this.setState(draft => {
       draft.peerConnectionStates[peerId] = 'connecting';
     });
 
-    const peer = new this.SimplePeer({ initiator: isInitiator });
+    const peer = new Peer({ initiator: true });
     this.peers.set(peerId, peer);
     this.setupPeerListeners(peerId, peer);
   }
@@ -152,13 +97,24 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
    * Handle incoming WebRTC signaling data for a peer.
    * Called by PeerMessagingActor when signaling is received from server.
    *
+   * If we don't have a peer yet, this is the first signal (offer) from the initiator,
+   * so we create a non-initiator peer to respond.
+   *
    * @param payload - Signaling payload with peer ID and signaling data
    */
   @action
   handleSignaling(payload: SignalingPayload): void {
-    const peer = this.peers.get(payload.peerId);
+    let peer = this.peers.get(payload.peerId);
+
+    // If we don't have a peer yet, we're the non-initiator responding to an offer
     if (!peer) {
-      return;
+      this.setState(draft => {
+        draft.peerConnectionStates[payload.peerId] = 'connecting';
+      });
+
+      peer = new Peer({ initiator: false });
+      this.peers.set(payload.peerId, peer);
+      this.setupPeerListeners(payload.peerId, peer);
     }
 
     peer.signal(payload.data);
@@ -187,9 +143,9 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
   // Private: Peer event handlers
   // ========================================
 
-  private setupPeerListeners(peerId: string, peer: SimplePeer): void {
+  private setupPeerListeners(peerId: string, peer: Peer): void {
     // Signaling data generated - needs to be sent to peer via WebSocket
-    peer.on('signal', (data: unknown) => {
+    peer.on('signal', (data: SignalData) => {
       this.emit('signalingData', { peerId, data });
     });
 

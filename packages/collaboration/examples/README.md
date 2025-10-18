@@ -182,11 +182,9 @@ Socket.IO client for server communication:
 To enable P2P WebRTC connections (lower latency):
 
 1. Add WebRTCActor to the client setup
-2. Install `simple-peer` package
-3. Configure WebRTC in actor registration
+2. Configure WebRTC in actor registration
 
 ```typescript
-import SimplePeer from 'simple-peer';
 
 const WebRTCToken = createActorToken<WebRTCActor>('webrtc');
 

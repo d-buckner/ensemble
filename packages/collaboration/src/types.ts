@@ -2,6 +2,8 @@
  * Core types for the collaboration package
  */
 
+import type { SignalData } from '@d-buckner/peer-pressure';
+
 // ============================================================================
 // PeerMessagingActor Types
 // ============================================================================
@@ -20,7 +22,7 @@ export interface MessagePayload {
 
 export interface SignalingPayload {
   peerId: string;
-  data: unknown;
+  data: SignalData;
 }
 
 export interface TransportChangedPayload {

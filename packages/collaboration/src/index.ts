@@ -10,7 +10,7 @@
 export { CollaborationActor, type CollaborationDeps } from './CollaborationActor';
 export { PeerMessagingActor, type PeerMessagingDeps } from './PeerMessagingActor';
 export { WebSocketActor } from './WebSocketActor';
-export { WebRTCActor, type WebRTCConfig } from './WebRTCActor';
+export { WebRTCActor } from './WebRTCActor';
 
 // Types
 export type {
