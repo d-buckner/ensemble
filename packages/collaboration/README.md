@@ -461,16 +461,36 @@ The server handles these Socket.IO events:
 - `webrtc-signal { from, data }` - WebRTC signaling from peer
 - `sync-message { from, message }` - CRDT message from peer
 
-### Examples
+### Live Demo
 
-The `examples/` directory contains complete working examples:
+A complete working React demo is available in `demos/react/collaboration/`:
 
-- **`standalone-server.ts`** - Standalone collaboration server with lifecycle hooks and monitoring
-- **`client-demo.ts`** - Two-client demo showing real-time collaborative todo list with CRDT synchronization
+- **Real-time collaborative todo list** - Multiple browser clients syncing in real-time
+- **WebSocket transport** - Server-side message relay with room management
+- **Automerge CRDT** - Automatic conflict resolution
+- **Full TypeScript** - Type-safe collaboration with domain-specific actions
 
 **Quick start:**
 ```bash
+# From the collaboration package directory
 npm run demo
 ```
 
-This runs both the server and client demo together with colored output. See `examples/README.md` for detailed instructions and individual script options.
+This runs both the collaboration server and React demo client with colored output.
+
+**Manual setup:**
+```bash
+# Terminal 1: Start the collaboration server
+npm run demo:server
+
+# Terminal 2: Start the React client (opens at http://localhost:5173)
+npm run demo:client
+
+# Open multiple browser tabs to see real-time sync
+```
+
+The demo shows how to:
+- Extend `CollaborationActor` with domain-specific actions
+- Set up WebSocket server with room management
+- Configure actor dependencies and lifecycle
+- Integrate with React for reactive UI updates
