@@ -172,4 +172,5 @@ describe('PeerMessagingActor', () => {
       expect(() => client.actions.broadcast(message)).not.toThrow();
     });
   });
+
 });

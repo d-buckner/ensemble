@@ -474,4 +474,5 @@ describe('Integration: Error Handling and Edge Cases', () => {
     expect(counter.state.count).toBe(100);
     expect(counter.state.lastEditor).toBe('op5');
   });
+
 });

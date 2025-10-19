@@ -424,4 +424,62 @@ describe('CollaborationActor', () => {
       expect(client.state.users['user-2'].profile.tags).toContain('tag2');
     });
   });
+
+  describe('Offline-First Support', () => {
+    it('should allow setState before any peers connect', async () => {
+      const client = system.getClient(TodosToken)!;
+
+      // No connection - completely offline
+      client.actions.addTodo('Offline todo');
+      await flushMicrotask();
+
+      expect(client.state.todos.length).toBe(1);
+      expect(client.state.todos[0].text).toBe('Offline todo');
+    });
+
+    it('should accumulate multiple setState calls before connection', async () => {
+      const client = system.getClient(TodosToken)!;
+
+      // Multiple changes while offline
+      client.actions.addTodo('Todo 1');
+      await new Promise(resolve => setTimeout(resolve, 1)); // Ensure unique timestamp
+      client.actions.addTodo('Todo 2');
+      await new Promise(resolve => setTimeout(resolve, 1)); // Ensure unique timestamp
+      client.actions.addTodo('Todo 3');
+      await flushMicrotask();
+
+      expect(client.state.todos.length).toBe(3);
+
+      // Toggle one todo
+      const todoId = client.state.todos[1].id;
+      client.actions.toggleTodo(todoId);
+      await flushMicrotask();
+
+      expect(client.state.todos[1].done).toBe(true);
+    });
+
+    it('should maintain state consistency across offline operations', async () => {
+      const client = system.getClient(TodosToken)!;
+
+      // Complex offline workflow
+      client.actions.addTodo('Task 1');
+      await flushMicrotask();
+      const id1 = client.state.todos[0].id;
+
+      client.actions.addTodo('Task 2');
+      await flushMicrotask();
+
+      client.actions.toggleTodo(id1);
+      await flushMicrotask();
+
+      client.actions.addTodo('Task 3');
+      await flushMicrotask();
+
+      // Verify final state
+      expect(client.state.todos.length).toBe(3);
+      expect(client.state.todos[0].done).toBe(true);
+      expect(client.state.todos[1].done).toBe(false);
+      expect(client.state.todos[2].done).toBe(false);
+    });
+  });
 });
