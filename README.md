@@ -35,9 +35,6 @@ Ensemble is a frontend framework for building complex applications using the act
 
 Ensemble is an experiment framework for folks who have run into compositional/multi-threading challenges with traditional frameworks and tools. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or innovative frontends where maintaining development velocity as complexity grows becomes a primary concern.
 
-## Project Status
-
-**Version:** 0.1.0 (Initial Release)
 **Status:** ⚠️ Experimental - APIs may change
 
 Ensemble is a new framework actively being developed. While the core concepts are solid and the implementation is functional, you should expect:
@@ -113,13 +110,13 @@ function Counter() {
 
 Ensemble is a monorepo with multiple packages:
 
-| Package | Version | Description |
-|---------|---------|-------------|
-| [@d-buckner/ensemble-core](./packages/core) | 0.1.0 | Core actor framework with threading support |
-| [@d-buckner/ensemble-react](./packages/react) | 0.1.0 | React hooks and bindings |
-| [@d-buckner/ensemble-solidjs](./packages/solidjs) | 0.1.0 | SolidJS primitives and bindings |
-| [@d-buckner/ensemble-vite-plugin](./packages/vite-plugin) | 0.1.0 | Vite plugin for Web Worker threading |
-| [@d-buckner/ensemble-collaboration](./packages/collaboration) | 0.1.0 | Real-time collaboration with Automerge CRDTs |
+| Package | Description |
+|---------|-------------|
+| [@d-buckner/ensemble-core](./packages/core) | Core actor framework with threading support |
+| [@d-buckner/ensemble-react](./packages/react) | React hooks and bindings |
+| [@d-buckner/ensemble-solidjs](./packages/solidjs) | SolidJS primitives and bindings |
+| [@d-buckner/ensemble-vite-plugin](./packages/vite-plugin) | Vite plugin for Web Worker threading |
+| [@d-buckner/ensemble-collaboration](./packages/collaboration) | Real-time collaboration with Automerge CRDTs |
 
 ## The Challenge
 For large-scale and innovative frontends, some fundamental architectural challenges can impact developer velocity:
