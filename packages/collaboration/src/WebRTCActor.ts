@@ -164,11 +164,13 @@ export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
 
     // Connection closed
     peer.on('close', () => {
+      console.log(`[WebRTCActor] 🔌 WebRTC connection closed for peer: ${peerId}`);
       this.handlePeerConnectionClosed(peerId);
     });
 
     // Connection error
-    peer.on('error', (_error: Error) => {
+    peer.on('error', (error: Error) => {
+      console.error(`[WebRTCActor] ❌ WebRTC error for peer ${peerId}:`, error);
       this.setState(draft => {
         draft.peerConnectionStates[peerId] = 'failed';
       });

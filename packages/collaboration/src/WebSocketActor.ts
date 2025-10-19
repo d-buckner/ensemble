@@ -135,8 +135,11 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketEvents> {
   @action
   sendTo(peerId: string, message: Uint8Array): void {
     if (!this.socket?.connected) {
+      console.warn('[WebSocketActor] ⚠️  Cannot send CRDT message - socket not connected');
       return;
     }
+
+    console.log(`[WebSocketActor] 📤 Sending CRDT sync message to peer: ${peerId} (${message.length} bytes)`);
 
     this.socket.emit('sync-message', {
       to: peerId,
@@ -190,11 +193,6 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketEvents> {
         peerId: data.peerId,
         peerIds: data.peers,
       });
-
-      // Emit peerJoined for each existing peer
-      for (const peerId of data.peers) {
-        this.emit('peerJoined', peerId);
-      }
     });
 
     this.socket.on('peer-joined', (peerId: string) => {
@@ -217,6 +215,7 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketEvents> {
     this.socket.on('sync-message', (data: { from: string; message: number[] }) => {
       // Convert array back to Uint8Array
       const message = new Uint8Array(data.message);
+      console.log(`[WebSocketActor] 📥 Received CRDT sync message from peer: ${data.from} (${message.length} bytes)`);
       this.emit('messageReceived', {
         peerId: data.from,
         message,

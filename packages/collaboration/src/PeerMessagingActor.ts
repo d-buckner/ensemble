@@ -4,6 +4,7 @@ import type {
   PeerMessagingEvents,
   MessagePayload,
   SignalingPayload,
+  RoomJoinedPayload,
 } from './types';
 import type { WebRTCActor } from './WebRTCActor';
 import type { WebSocketActor } from './WebSocketActor';
@@ -58,22 +59,29 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
   sendTo(peerId: string, message: Uint8Array): void {
     const transport = this.state.peerTransports[peerId];
 
+    console.log(`[PeerMessagingActor] 📨 sendTo called for peer: ${peerId}, transport: ${transport}, message: ${message.length} bytes`);
+
     if (!transport) {
+      console.warn(`[PeerMessagingActor] ⚠️  No transport found for peer: ${peerId} - message dropped!`);
       return;
     }
 
     // Check WebRTC connection state before attempting to use it
     if (transport === 'webrtc') {
       const webrtcState = this.deps.webrtc.state.peerConnectionStates[peerId];
+      console.log(`[PeerMessagingActor] 🔀 Transport is WebRTC, state: ${webrtcState}`);
       if (webrtcState === 'connected') {
+        console.log(`[PeerMessagingActor] ⚡ Sending via WebRTC to ${peerId}`);
         this.deps.webrtc.actions.sendTo(peerId, message);
         return;
       }
       // WebRTC not connected, fallback to WebSocket
+      console.log(`[PeerMessagingActor] 🔄 WebRTC not ready, falling back to WebSocket for ${peerId}`);
       this.deps.websocket.actions.sendTo(peerId, message);
       return;
     }
 
+    console.log(`[PeerMessagingActor] 🌐 Sending via WebSocket to ${peerId}`);
     this.deps.websocket.actions.sendTo(peerId, message);
   }
 
@@ -94,24 +102,54 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
   // ========================================
 
   /**
+   * Handle room joined via WebSocket.
+   * Emits roomJoined event, then adds existing peers to state WITHOUT initiating WebRTC.
+   * The existing peers will initiate the connection when they receive peer-joined.
+   */
+  @effect('websocket.roomJoined')
+  private async handleWebSocketRoomJoined(payload: RoomJoinedPayload): Promise<void> {
+    console.log(`[PeerMessagingActor] 🏠 Joined room with ${payload.peerIds.length} existing peer(s) - NOT initiating WebRTC`);
+
+    // Emit roomJoined event for dependent actors
+    this.emit('roomJoined', payload);
+
+    // Add all existing peers to state
+    for (const peerId of payload.peerIds) {
+      if (!this.state.connectedPeers.includes(peerId)) {
+        await this.setState(draft => {
+          draft.connectedPeers.push(peerId);
+          draft.peerTransports[peerId] = 'websocket';
+        });
+
+        // Emit after state is committed
+        this.emit('peerConnected', peerId);
+      }
+    }
+    // Do NOT initiate WebRTC - let the existing peers initiate to us
+  }
+
+  /**
    * Handle peer joined via WebSocket.
    * Adds peer to state with WebSocket transport and emits peerConnected.
    * Also initiates WebRTC connection as the initiator.
    */
   @effect('websocket.peerJoined')
-  private handleWebSocketPeerJoined(peerId: string): void {
+  private async handleWebSocketPeerJoined(peerId: string): Promise<void> {
     if (this.state.connectedPeers.includes(peerId)) {
       return;
     }
 
-    this.setState(draft => {
+    console.log(`[PeerMessagingActor] 👋 New peer joined: ${peerId} - initiating WebRTC as existing peer`);
+
+    await this.setState(draft => {
       draft.connectedPeers.push(peerId);
       draft.peerTransports[peerId] = 'websocket';
     });
 
+    // Emit after state is committed
     this.emit('peerConnected', peerId);
 
-    // Initiate WebRTC connection
+    // Initiate WebRTC connection as the initiator (we're the existing peer)
     this.deps.webrtc.actions.connectToPeer(peerId);
   }
 
@@ -143,6 +181,7 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
    */
   @effect('websocket.signalingMessage')
   private handleWebSocketSignaling(payload: SignalingPayload): void {
+    console.log(`[PeerMessagingActor] 🔀 Forwarding WebSocket signaling to WebRTC for peer: ${payload.peerId}`);
     this.deps.webrtc.actions.handleSignaling(payload);
   }
 
@@ -182,6 +221,8 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
 
     const previousTransport = this.state.peerTransports[peerId];
 
+    console.log(`[PeerMessagingActor] 🚀 Upgrading transport to WebRTC for peer: ${peerId} (was: ${previousTransport})`);
+
     this.setState(draft => {
       draft.peerTransports[peerId] = 'webrtc';
     });
@@ -219,6 +260,7 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingE
    */
   @effect('webrtc.signalingData')
   private handleWebRTCSignaling(payload: SignalingPayload): void {
+    console.log(`[PeerMessagingActor] 🔀 Forwarding WebRTC signaling to WebSocket for peer: ${payload.peerId}`);
     this.deps.websocket.actions.sendSignal(payload.peerId, payload.data);
   }
 

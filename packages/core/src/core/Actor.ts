@@ -61,6 +61,7 @@ export abstract class Actor<
   private _metadata!: ActorMetadata;
   public readonly mailbox = new Mailbox();
   private stateUpdateQueue: Array<(draft: Draft<TState>) => void> = [];
+  private stateUpdateListeners: Set<() => void> = new Set();
 
   // Dependency injection - set by ActorSystem
   protected declare deps?: Record<string, any>;
@@ -86,7 +87,6 @@ export abstract class Actor<
     // Deep copy initialState to ensure each instance has its own state object
     // This prevents state from being shared across multiple actor instances
     this._state = structuredClone(initialState) as TState;
-    this.__flushPendingStateUpdates = this.__flushPendingStateUpdates.bind(this);
   }
 
   // Framework injection (called after construction)
@@ -212,15 +212,20 @@ export abstract class Actor<
    * updates simultaneously without intermediate states.
    *
    * @param updater - Function that mutates a draft of the current state (Mutative API)
+   * @returns Promise that resolves when the state update has been committed
    * @throws Error if ThreadContext is not initialized (indicates framework setup issue)
    */
-  protected setState(updater: (draft: Draft<TState>) => void): void {
+  protected setState(updater: (draft: Draft<TState>) => void): Promise<void> {
     this.stateUpdateQueue.push(updater);
 
     if (this.stateUpdateQueue.length === 1) {
       // Always use thread-level coordinator - fail fast if not initialized
       ThreadContext.current.scheduleFlush(this);
     }
+
+    return new Promise<void>(resolve => {
+      this.stateUpdateListeners.add(resolve);
+    });
   }
 
   /**
@@ -276,19 +281,12 @@ export abstract class Actor<
     if (this.bus) {
       this.bus.emit(PROTOCOL_EVENTS.STATE_PARTIAL, partial);
     }
-  }
 
-  /**
-   * Flush all pending state updates in the queue.
-   * Applies all queued updaters in a single Mutative transaction and emits STATE_PARTIAL.
-   *
-   * @internal Called by ThreadStateCoordinator
-   */
-  __flushPendingStateUpdates(): void {
-    const partial = this.__applyPendingStateUpdates();
-    if (partial) {
-      this.__emitStateChanges(partial);
-    }
+    // Notify all waiting setState() callers that the state has been committed
+    this.stateUpdateListeners.forEach(listener => {
+      this.stateUpdateListeners.delete(listener);
+      listener();
+    });
   }
 
   // Event emission

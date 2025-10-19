@@ -31,6 +31,7 @@ export interface TransportChangedPayload {
 }
 
 export interface PeerMessagingEvents {
+  roomJoined: RoomJoinedPayload;
   peerConnected: string;
   peerDisconnected: string;
   transportChanged: TransportChangedPayload;
