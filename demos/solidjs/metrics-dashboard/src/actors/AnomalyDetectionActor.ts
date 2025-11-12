@@ -1,4 +1,4 @@
-import { Actor, effect, thread } from '@d-buckner/ensemble-core';
+import { Actor, effect } from '@d-buckner/ensemble-core';
 import type { StatisticsActor, ProcessedBatch, ProcessedMetrics } from './StatisticsActor';
 import type { IActorClient } from '@d-buckner/ensemble-core';
 
@@ -18,6 +18,8 @@ export interface AnomalyDetectionState {
   recentAnomalies: Anomaly[];
 }
 
+export interface AnomalyDetectionActions {}
+
 export interface AnomalyDetectionEvents {
   latestAnomaly: Anomaly;
 }
@@ -35,8 +37,7 @@ interface AnomalyDetectionDeps {
  * - Historical state tracking for trend detection
  * - Reactive event communication
  */
-@thread('worker-2')
-export class AnomalyDetectionActor extends Actor<AnomalyDetectionState, AnomalyDetectionEvents> {
+export class AnomalyDetectionActor extends Actor<AnomalyDetectionState, AnomalyDetectionActions, AnomalyDetectionEvents> {
   static readonly initialState: AnomalyDetectionState = {
     isMonitoring: false,
     anomaliesDetected: 0,

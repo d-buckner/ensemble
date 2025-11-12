@@ -5,7 +5,13 @@ export interface CounterState extends Record<string, unknown> {
   count: number;
 }
 
-export class CounterActor extends Actor<CounterState> {
+export interface CounterActions {
+  increment(): void;
+  decrement(): void;
+  reset(): void;
+}
+
+export class CounterActor extends Actor<CounterState, CounterActions> {
   static readonly initialState: CounterState = { count: 0 };
 
   constructor() {

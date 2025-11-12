@@ -9,7 +9,6 @@ import { MainBus } from '../messaging/MainBus';
 import { ThreadStateCoordinator } from '../messaging/ThreadStateCoordinator';
 import { WorkerRegistry } from '../threading/WorkerRegistry';
 import { AsyncActorClient } from './ActorClient';
-import { getThreadMetadata } from './decorators';
 import { SyncActorClient } from './SyncActorClient';
 import { ThreadContext } from './ThreadContext';
 import type { Actor, ActorMetadata, ActorConstructor } from './Actor';
@@ -17,6 +16,7 @@ import type { ActorToken } from './ActorToken';
 import type { IActorClient } from './types';
 import type { AllEvents } from '../messaging/types';
 import type { InstantiateCommand } from '../threading/WorkerRuntime';
+import type { EnsembleConfig } from '../config';
 
 
 // Registration interface for actor instances
@@ -28,7 +28,7 @@ export interface ActorRegistration<T extends Actor = any> {
 
 // Internal node representation in the graph
 interface Node<T extends Actor = any> extends ActorRegistration<T> {
-  threadId: string; // Extracted from @thread decorator or defaults to MAIN_THREAD_ID
+  threadId: string; // Determined from ensemble.json config or defaults to MAIN_THREAD_ID
   className: string; // Stored before minification for worker instantiation
   dependents: ActorToken<T>[];
 }
@@ -49,9 +49,15 @@ export default class ActorSystem {
   private instances: Map<symbol, Actor> = new Map();
   private clients: Map<symbol, IActorClient<any>> = new Map();
   private threadsToRegister: Set<string> = new Set();
+  private config?: EnsembleConfig;
 
-  constructor() {
+  /**
+   * @param config - Optional ensemble.json configuration for thread topology
+   *                 If not provided, all actors will run on the main thread
+   */
+  constructor(config?: EnsembleConfig) {
     this.workerRegistry = new WorkerRegistry();
+    this.config = config;
   }
 
   register(registration: ActorRegistration): void {
@@ -61,8 +67,8 @@ export default class ActorSystem {
       throw new Error(`Cannot register actor that is already registered: ${token.id}`);
     }
 
-    // Extract threadId from @thread decorator, default to MAIN_THREAD_ID
-    const threadId = getThreadMetadata(actor) ?? MAIN_THREAD_ID;
+    // Determine threadId from ensemble.json config, default to MAIN_THREAD_ID
+    const threadId = this.getThreadIdForActor(actor.name);
 
     // Validate all dependency instances exist already
     Object.values(dependencies).forEach(depToken => {
@@ -98,6 +104,28 @@ export default class ActorSystem {
    */
   getAllActorIds(): string[] {
     return Object.keys(this.graph);
+  }
+
+  /**
+   * Determine which thread an actor should run on based on ensemble.json configuration
+   * @param actorClassName - The name of the actor class
+   * @returns Thread ID (defaults to MAIN_THREAD_ID if not configured)
+   */
+  private getThreadIdForActor(actorClassName: string): string {
+    if (!this.config) {
+      return MAIN_THREAD_ID;
+    }
+
+    // Search through threads to find which one contains this actor
+    for (const [threadId, threadConfig] of Object.entries(this.config.threads)) {
+      const hasActor = threadConfig.actors.some(entry => entry.name === actorClassName);
+      if (hasActor) {
+        return threadId;
+      }
+    }
+
+    // Not found in any worker thread - runs on main thread
+    return MAIN_THREAD_ID;
   }
 
   /**
@@ -341,7 +369,7 @@ export default class ActorSystem {
    * The actor type is automatically inferred from the token.
    * Returns the appropriate client type (SyncActorClient or AsyncActorClient)
    */
-  getClient<T extends Actor>(token: ActorToken<T>): IActorClient<T> | null {
+  getClient<T extends Actor<any, any, any>>(token: ActorToken<T>): IActorClient<T> | null {
     const client = this.clients.get(token.symbol);
     return client ? (client as IActorClient<T>) : null;
   }

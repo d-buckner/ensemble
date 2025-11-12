@@ -136,7 +136,11 @@ interface CollaborationDeps {
   connection: IActorClient<PeerMessagingActor>;  // Single dependency!
 }
 
-class CollaborationActor<TDoc> extends Actor<TDoc, CollaborationEvents> {
+interface CollaborationActions {
+  // Actions for collaboration operations
+}
+
+class CollaborationActor<TDoc> extends Actor<TDoc, CollaborationActions, CollaborationEvents> {
   // Automerge internals (private, NOT in state)
   private automergeDoc: AutomergeDoc<TDoc>;
   private syncStates = new Map<string, SyncState>();
@@ -502,7 +506,12 @@ This section documents the system startup sequence and runtime lifecycle of the 
 
 **Constructor Parameters (Required):**
 ```typescript
-class WebSocketActor extends Actor<WebSocketState, WebSocketEvents> {
+interface WebSocketActions {
+  connect(): void;
+  disconnect(): void;
+}
+
+class WebSocketActor extends Actor<WebSocketState, WebSocketActions, WebSocketEvents> {
   constructor(config: { url: string; roomId: string }) {
     super({
       url: config.url,
@@ -1367,7 +1376,12 @@ interface PresenceState {
   selections: Map<string, { start: number; end: number }>;
 }
 
-class PresenceActor extends Actor<PresenceState, PresenceEvents> {
+interface PresenceActions {
+  updateCursor(peerId: string, position: { line: number; column: number }): void;
+  updateSelection(peerId: string, range: { start: number; end: number }): void;
+}
+
+class PresenceActor extends Actor<PresenceState, PresenceActions, PresenceEvents> {
   // Track peer presence (cursors, selections, etc.)
   // Ephemeral state, not persisted
 }

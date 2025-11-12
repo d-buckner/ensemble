@@ -628,7 +628,11 @@ describe('Per-thread state batching', () => {
   it('should update derived state atomically across main-thread actors', async () => {
     const system = new ActorSystem();
 
-    class SourceActor extends Actor<{ value: number }, { valueChanged: number }> {
+    interface SourceActions {
+      setValue(value: number): void;
+    }
+
+    class SourceActor extends Actor<{ value: number }, SourceActions, { valueChanged: number }> {
       @action
       setValue(value: number) {
         this.setState(draft => { draft.value = value; });
@@ -636,7 +640,9 @@ describe('Per-thread state batching', () => {
       }
     }
 
-    class DerivedActor extends Actor<{ computed: number }, {}> {
+    interface DerivedActions {}
+
+    class DerivedActor extends Actor<{ computed: number }, DerivedActions, {}> {
       @effect('source.valueChanged')
       handleValueChange(value: number) {
         this.setState(draft => { draft.computed = value * 2; });

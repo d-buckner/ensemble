@@ -7,6 +7,14 @@ import type {
 } from './types';
 import type { SignalData } from '@d-buckner/peer-pressure';
 
+export interface WebSocketActions {
+  initialize(config: WebSocketConfig): void;
+  connect(): void;
+  disconnect(): void;
+  sendSignal(peerId: string, data: unknown): void;
+  sendTo(peerId: string, message: Uint8Array): void;
+}
+
 /**
  * WebSocketActor - Socket.IO client for signaling and fallback transport
  *
@@ -22,7 +30,7 @@ import type { SignalData } from '@d-buckner/peer-pressure';
  * - Server-assigned peer IDs (ensures uniqueness)
  * - No dependencies on other actors
  */
-export class WebSocketActor extends Actor<WebSocketState, WebSocketEvents> {
+export class WebSocketActor extends Actor<WebSocketState, WebSocketActions, WebSocketEvents> {
   static readonly initialState: WebSocketState = {
     url: '',
     roomId: '',

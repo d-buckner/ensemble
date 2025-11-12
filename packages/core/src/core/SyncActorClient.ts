@@ -1,6 +1,6 @@
 import { getEffectMetadata } from './decorators';
-import type { Actor, StateOf, ActorConstructor } from './Actor';
-import type { IActorClient, ActionsOf, ClientAllEvents } from './types';
+import type { Actor, StateOf, ActionsOf, ActorConstructor } from './Actor';
+import type { IActorClient, ClientAllEvents } from './types';
 import type { TypedListener } from '../messaging/types';
 
 /**
@@ -16,7 +16,7 @@ import type { TypedListener } from '../messaging/types';
  * - No state hydration needed - state is always current
  * - Effects are setup and managed internally by this client
  */
-export class SyncActorClient<TActor extends Actor<any, any>> implements IActorClient<TActor> {
+export class SyncActorClient<TActor extends Actor<any, any, any>> implements IActorClient<TActor> {
   private actorInstance: TActor;
   private deps: Record<string, IActorClient<any>>;
   private unsubscribers: Array<() => void> = [];

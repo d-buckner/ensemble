@@ -41,7 +41,7 @@ interface MockState extends Record<string, unknown> {
   value: number;
 }
 
-class MockActor extends Actor<MockState> {
+class MockActor extends Actor<MockState, {}, {}> {
   static readonly initialState: MockState = { value: 0 };
 
   constructor() {
@@ -49,7 +49,7 @@ class MockActor extends Actor<MockState> {
   }
 }
 
-class DependentActor extends Actor<MockState> {
+class DependentActor extends Actor<MockState, {}, {}> {
   static readonly initialState: MockState = { value: 0 };
 
   constructor() {
@@ -391,7 +391,7 @@ describe('ActorSystem', () => {
     it('should call onDestroy lifecycle hooks', async () => {
       const onDestroySpy = vi.fn();
 
-      class LifecycleActor extends Actor<MockState> {
+      class LifecycleActor extends Actor<MockState, {}, {}> {
         static readonly initialState: MockState = { value: 0 };
 
         constructor() {

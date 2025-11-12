@@ -1,10 +1,11 @@
 import { createHash } from 'crypto';
+import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
+import { resolve, dirname } from 'path';
 import { bundleVirtualWorker } from './bundle-worker';
-import { createWorkerMiddleware } from './dev-server';
-import { generateWorkerEntry } from './generate-worker-entry';
-import { scanForThreadActors, scanAllActors, type ActorInfo } from './scan-actors';
+import { generateWorkerEntryCode } from './generate-worker-code';
 import type { EnsemblePluginOptions } from './types';
 import type { Plugin, ResolvedConfig } from 'vite';
+import type { EnsembleConfig } from '@d-buckner/ensemble-core';
 
 
 const VIRTUAL_MODULE_PREFIX = 'virtual:ensemble-worker-';
@@ -16,8 +17,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
   const { workerOutput = 'workers' } = options;
 
   let config: ResolvedConfig;
-  let actorsByThread: Map<string, ActorInfo[]> = new Map();
-  let allActors: Map<string, ActorInfo> = new Map();
+  let ensembleConfig: EnsembleConfig | null = null;
   const workerBundles: Map<string, string> = new Map();
   let workerPaths: Record<string, string> = {};
 
@@ -27,19 +27,24 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
     async configResolved(resolvedConfig) {
       config = resolvedConfig;
 
-      // Scan for ALL actors (both main thread and worker)
-      allActors = await scanAllActors(config.root);
+      // Load ensemble.json configuration
+      const configPath = resolve(config.root, 'ensemble.json');
+      if (!existsSync(configPath)) {
+        // No configuration file - no worker threads defined
+        return;
+      }
 
-      // Scan for actors with @thread decorator
-      actorsByThread = await scanForThreadActors(config.root);
+      try {
+        const configContent = readFileSync(configPath, 'utf-8');
+        ensembleConfig = JSON.parse(configContent) as EnsembleConfig;
+      } catch (error) {
+        throw new Error(`Failed to load ensemble.json: ${error}`);
+      }
     },
 
     resolveId(id) {
       if (id === MANIFEST_MODULE_ID) {
         return RESOLVED_MANIFEST_ID;
-      }
-      if (id.startsWith(VIRTUAL_MODULE_PREFIX)) {
-        return RESOLVED_VIRTUAL_PREFIX + id.slice(VIRTUAL_MODULE_PREFIX.length);
       }
     },
 
@@ -48,55 +53,38 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
         // Return worker paths (with hashes in production, simple paths in dev)
         return `export const WORKER_PATHS = ${JSON.stringify(workerPaths, null, 2)};`;
       }
-
-      if (id.startsWith(RESOLVED_VIRTUAL_PREFIX)) {
-        const threadId = id.slice(RESOLVED_VIRTUAL_PREFIX.length);
-        const threadActors = actorsByThread.get(threadId);
-
-        if (!threadActors) {
-          return undefined;
-        }
-
-        return generateWorkerEntry(threadId, threadActors, allActors);
-      }
     },
 
     async buildStart() {
-      // In dev mode, use simple paths (Vite handles cache busting)
-      if (config.command === 'serve') {
-        workerPaths = {};
-        for (const threadId of actorsByThread.keys()) {
-          workerPaths[threadId] = `./${workerOutput}/${threadId}.js`;
-        }
+      if (!ensembleConfig) {
+        // No worker threads configured
         return;
       }
 
-      // In build mode, bundle workers and compute hashed paths
-      for (const threadId of actorsByThread.keys()) {
-        const virtualModuleId = RESOLVED_VIRTUAL_PREFIX + threadId;
+      // Only bundle during build mode - dev mode doesn't pre-bundle workers
+      if (config.command === 'build') {
+        // Build mode: Bundle workers with dependencies
+        for (const [threadId, threadConfig] of Object.entries(ensembleConfig.threads)) {
+          const virtualModuleId = `\0virtual:ensemble-worker-${threadId}`;
+          const workerCode = generateWorkerEntryCode(threadConfig, config.root);
 
-        try {
-          const bundleResult = await bundleVirtualWorker(
-            virtualModuleId,
-            (id) => {
-              if (id === virtualModuleId) {
-                const threadActors = actorsByThread.get(threadId);
-                if (!threadActors) return undefined;
-                return generateWorkerEntry(threadId, threadActors, allActors);
-              }
-            },
-            config.root
-          );
+          try {
+            const bundleResult = await bundleVirtualWorker(
+              virtualModuleId,
+              (id) => id === virtualModuleId ? workerCode : undefined,
+              config.root
+            );
 
-          const bundledCode = bundleResult.code;
-          workerBundles.set(threadId, bundledCode);
+            const bundledCode = bundleResult.code;
+            workerBundles.set(threadId, bundledCode);
 
-          // Compute content hash for production builds
-          const hash = createHash('sha256').update(bundledCode).digest('hex').substring(0, 8);
-          const fileName = `${workerOutput}/${threadId}-${hash}.js`;
-          workerPaths[threadId] = `./${fileName}`;
-        } catch (error) {
-          this.error(`Failed to bundle worker for thread "${threadId}": ${error}`);
+            // Compute content hash for cache busting
+            const hash = createHash('sha256').update(bundledCode).digest('hex').substring(0, 8);
+            const fileName = `${workerOutput}/${threadId}-${hash}.js`;
+            workerPaths[threadId] = `./${fileName}`;
+          } catch (error) {
+            this.error(`Failed to bundle worker for thread "${threadId}": ${error}`);
+          }
         }
       }
     },
@@ -131,8 +119,24 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
     },
 
     configureServer(server) {
-      // Serve the worker during development with smart caching
-      server.middlewares.use(createWorkerMiddleware(workerOutput, actorsByThread, allActors, config.root, server));
+      // Dev mode: Workers are served via middleware (bundled on-demand)
+      if (ensembleConfig) {
+        const { createWorkerMiddleware } = require('./dev-server');
+        server.middlewares.use(
+          createWorkerMiddleware(
+            workerOutput,
+            ensembleConfig,
+            config.root,
+            server,
+            generateWorkerEntryCode
+          )
+        );
+
+        // Set worker paths for virtual manifest module
+        for (const threadId of Object.keys(ensembleConfig.threads)) {
+          workerPaths[threadId] = `/${workerOutput}/${threadId}.js`;
+        }
+      }
     },
   };
 

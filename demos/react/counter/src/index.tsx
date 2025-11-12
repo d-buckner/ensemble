@@ -5,10 +5,12 @@ import { createRoot } from 'react-dom/client';
 import { CounterActor } from './actors/CounterActor';
 import { App } from './App';
 import { CounterToken } from './tokens';
+import ensembleConfig from '../ensemble.json';
 
 
 async function main() {
-  const system = new ActorSystem();
+  // Load thread configuration from ensemble.json
+  const system = new ActorSystem(ensembleConfig);
 
   system.register({
     token: CounterToken,

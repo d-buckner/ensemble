@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Ensemble Configuration",
+  "description": "Configuration file for Ensemble threading topology. Defines which actors run on which worker threads.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to this JSON schema for IDE support"
+    },
+    "threads": {
+      "type": "object",
+      "description": "Thread topology configuration. Each key is a thread ID, and each value configures that thread's actors.",
+      "patternProperties": {
+        "^[a-zA-Z0-9-_]+$": {
+          "type": "object",
+          "required": ["actors"],
+          "properties": {
+            "actors": {
+              "type": "array",
+              "description": "Array of actors that should run on this thread. The Vite plugin will automatically generate a worker entry file.",
+              "items": {
+                "type": "object",
+                "required": ["path", "name"],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file containing the actor class, relative to project root. Example: './src/actors/MetricGeneratorActor.ts'"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Name of the actor class to import and register. Must match the exported class name exactly. Example: 'MetricGeneratorActor'"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "minItems": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["threads"],
+  "additionalProperties": false
+}

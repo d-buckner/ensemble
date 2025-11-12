@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { Actor } from './Actor';
-import { action, effect, thread, getActionMetadata, getEffectMetadata, getThreadMetadata } from './decorators';
+import { action, effect, getActionMetadata, getEffectMetadata } from './decorators';
 
 
 describe('Decorators', () => {
   describe('@action decorator', () => {
     it('should collect metadata for decorated methods', () => {
-      class TestActor extends Actor {
+      interface TestActions {
+        testMethod(): void;
+        anotherMethod(): void;
+      }
+
+      class TestActor extends Actor<{}, TestActions, {}> {
         constructor() {
           super({});
         }
@@ -29,7 +34,11 @@ describe('Decorators', () => {
     });
 
     it('should preserve method functionality', () => {
-      class TestActor extends Actor<{ count: number }> {
+      interface TestActions {
+        increment(): void;
+      }
+
+      class TestActor extends Actor<{ count: number }, TestActions, {}> {
         static readonly initialState = { count: 0 };
 
         constructor() {
@@ -48,7 +57,7 @@ describe('Decorators', () => {
     });
 
     it('should handle actors with no actions', () => {
-      class TestActor extends Actor {
+      class TestActor extends Actor<{}, {}, {}> {
         constructor() {
           super({});
         }
@@ -63,7 +72,7 @@ describe('Decorators', () => {
 
   describe('@effect decorator', () => {
     it('should collect metadata with event subscriptions', () => {
-      class TestActor extends Actor {
+      class TestActor extends Actor<{}, {}, {}> {
         protected declare deps: { someActor: unknown };
 
         constructor() {
@@ -105,7 +114,7 @@ describe('Decorators', () => {
 
     it('should throw on invalid subscription format', () => {
       expect(() => {
-        class TestActor extends Actor {
+        class TestActor extends Actor<{}, {}, {}> {
           constructor() {
             super({});
           }
@@ -119,7 +128,7 @@ describe('Decorators', () => {
     });
 
     it('should handle actors with no effects', () => {
-      class TestActor extends Actor {
+      class TestActor extends Actor<{}, {}, {}> {
         constructor() {
           super({});
         }
@@ -132,7 +141,7 @@ describe('Decorators', () => {
     });
 
     it('should preserve method functionality', () => {
-      class TestActor extends Actor<{ derived: number }> {
+      class TestActor extends Actor<{ derived: number }, {}, {}> {
         static readonly initialState = { derived: 0 };
 
         protected declare deps: { someActor: { state: { count: number } } };
@@ -156,7 +165,11 @@ describe('Decorators', () => {
 
   describe('Decorator metadata inheritance', () => {
     it('should collect metadata from class hierarchy', () => {
-      class BaseActor extends Actor {
+      interface BaseActions {
+        baseAction(): void;
+      }
+
+      class BaseActor extends Actor<{}, BaseActions, {}> {
         constructor() {
           super({});
         }
@@ -178,7 +191,7 @@ describe('Decorators', () => {
     });
 
     it('should collect effect metadata from parent classes', () => {
-      class ParentActor extends Actor {
+      class ParentActor extends Actor<{}, {}, {}> {
         protected declare deps: { dependency: unknown };
 
         constructor() {
@@ -215,7 +228,7 @@ describe('Decorators', () => {
     });
 
     it('should collect effects from multi-level inheritance', () => {
-      class GrandparentActor extends Actor {
+      class GrandparentActor extends Actor<{}, {}, {}> {
         protected declare deps: { dep: unknown };
 
         constructor() {
@@ -245,50 +258,6 @@ describe('Decorators', () => {
       expect(methodNames).toContain('grandparentEffect');
       expect(methodNames).toContain('parentEffect');
       expect(methodNames).toContain('childEffect');
-    });
-  });
-
-  describe('@thread decorator', () => {
-    it('should store thread metadata on class', () => {
-      @thread('worker-1')
-      class TestActor extends Actor {
-        constructor() {
-          super({});
-        }
-      }
-
-      const threadId = getThreadMetadata(TestActor);
-      expect(threadId).toBe('worker-1');
-    });
-
-    it('should return undefined for actors without @thread decorator', () => {
-      class TestActor extends Actor {
-        constructor() {
-          super({});
-        }
-      }
-
-      const threadId = getThreadMetadata(TestActor);
-      expect(threadId).toBeUndefined();
-    });
-
-    it('should support different thread IDs', () => {
-      @thread('compute-thread')
-      class ComputeActor extends Actor {
-        constructor() {
-          super({});
-        }
-      }
-
-      @thread('io-thread')
-      class IoActor extends Actor {
-        constructor() {
-          super({});
-        }
-      }
-
-      expect(getThreadMetadata(ComputeActor)).toBe('compute-thread');
-      expect(getThreadMetadata(IoActor)).toBe('io-thread');
     });
   });
 });

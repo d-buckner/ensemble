@@ -25,11 +25,15 @@ interface SourceState {
   value: number;
 }
 
+interface SourceActions {
+  setValue(newValue: number): void;
+}
+
 interface SourceEvents {
   valueChanged: { newValue: number };
 }
 
-class SourceActor extends Actor<SourceState, SourceEvents> {
+class SourceActor extends Actor<SourceState, SourceActions, SourceEvents> {
   static readonly initialState: SourceState = { value: 0 };
 
   constructor() {
@@ -58,7 +62,7 @@ interface DerivedADeps {
   source: IActorClient<SourceActor>;
 }
 
-class DerivedActorA extends Actor<DerivedAState> {
+class DerivedActorA extends Actor<DerivedAState, {}, {}> {
   static readonly initialState: DerivedAState = { doubled: 0, updateCount: 0 };
 
   protected declare deps: DerivedADeps;
@@ -89,7 +93,7 @@ interface DerivedBDeps {
   source: IActorClient<SourceActor>;
 }
 
-class DerivedActorB extends Actor<DerivedBState> {
+class DerivedActorB extends Actor<DerivedBState, {}, {}> {
   static readonly initialState: DerivedBState = { tripled: 0, updateCount: 0 };
 
   protected declare deps: DerivedBDeps;
@@ -121,7 +125,7 @@ interface CompositeDeps {
   derivedB: IActorClient<DerivedActorB>;
 }
 
-class CompositeActor extends Actor<CompositeState> {
+class CompositeActor extends Actor<CompositeState, {}, {}> {
   static readonly initialState: CompositeState = {
     lastSum: 0,
     observations: [],

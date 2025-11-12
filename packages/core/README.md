@@ -22,9 +22,14 @@ npm install @d-buckner/ensemble-core
 ```typescript
 import { Actor, action, createActorToken, ActorSystem } from '@d-buckner/ensemble-core';
 
-// 1. Define your actor state and events
+// 1. Define your actor state, actions, and events
 interface CounterState {
   count: number;
+}
+
+interface CounterActions {
+  increment(): void;
+  decrement(): void;
 }
 
 interface CounterEvents {
@@ -32,7 +37,7 @@ interface CounterEvents {
 }
 
 // 2. Create an actor class
-class CounterActor extends Actor<CounterState, CounterEvents> {
+class CounterActor extends Actor<CounterState, CounterActions, CounterEvents> {
   static readonly initialState: CounterState = { count: 0 };
 
   @action

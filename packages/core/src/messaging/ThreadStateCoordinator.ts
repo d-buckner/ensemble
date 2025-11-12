@@ -29,7 +29,7 @@ import type { Actor } from '../core/Actor';
  * @internal Framework internal - not exported to users
  */
 export class ThreadStateCoordinator {
-  private actorsWithPendingUpdates = new Set<Actor<any, any>>();
+  private actorsWithPendingUpdates = new Set<Actor<any, any, any>>();
   private flushScheduled = false;
 
   /**
@@ -38,7 +38,7 @@ export class ThreadStateCoordinator {
    *
    * @param actor - Actor with pending state updates
    */
-  scheduleFlush(actor: Actor<any, any>): void {
+  scheduleFlush(actor: Actor<any, any, any>): void {
     this.actorsWithPendingUpdates.add(actor);
 
     if (!this.flushScheduled) {

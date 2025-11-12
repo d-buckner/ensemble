@@ -31,13 +31,15 @@ interface TodoState {
   filter: string;
 }
 
-interface TodoEvents {
-  addTodo: [text: string];
-  toggleTodo: [id: string];
-  setFilter: [filter: string];
+interface TodoActions {
+  addTodo(text: string): void;
+  toggleTodo(id: string): void;
+  setFilter(filter: string): void;
 }
 
-class TodoActor extends Actor<TodoState, TodoEvents> {
+interface TodoEvents {}
+
+class TodoActor extends Actor<TodoState, TodoActions, TodoEvents> {
   static readonly initialState: TodoState = {
     todos: [],
     filter: ''
@@ -87,7 +89,7 @@ interface StatsDeps {
   todoActor: IActorClient<TodoActor>;
 }
 
-class StatsActor extends Actor<StatsState> {
+class StatsActor extends Actor<StatsState, {}, {}> {
   static readonly initialState: StatsState = {
     totalCount: 0,
     completedCount: 0,
@@ -286,11 +288,15 @@ describe('E2E Integration Test', () => {
       value: number;
     }
 
+    interface CustomEmitterActions {
+      emitCustom(data: string): void;
+    }
+
     interface CustomEventEvents {
       customEmitted: { data: string };
     }
 
-    class CustomEmitterActor extends Actor<CustomEventState, CustomEventEvents> {
+    class CustomEmitterActor extends Actor<CustomEventState, CustomEmitterActions, CustomEventEvents> {
       static readonly initialState: CustomEventState = { value: 0 };
 
       constructor() {

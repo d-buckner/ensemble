@@ -68,8 +68,19 @@ npm install @d-buckner/ensemble-collaboration
 ```typescript
 import { createActorToken, ActorSystem, Actor, action } from '@d-buckner/ensemble-core';
 
-// 1. Define an actor
-class CounterActor extends Actor {
+// 1. Define actor interfaces
+interface CounterState {
+  count: number;
+}
+
+interface CounterActions {
+  increment(): void;
+}
+
+interface CounterEvents {}
+
+// 2. Define an actor
+class CounterActor extends Actor<CounterState, CounterActions, CounterEvents> {
   state = { count: 0 };
 
   @action
@@ -78,14 +89,14 @@ class CounterActor extends Actor {
   }
 }
 
-// 2. Create a token and system
+// 3. Create a token and system
 const CounterToken = createActorToken<CounterActor>('counter');
 const system = new ActorSystem();
 
 system.register({ token: CounterToken, actor: CounterActor });
 await system.start();
 
-// 3. Use the actor
+// 4. Use the actor
 const counter = system.get(CounterToken);
 counter.on('stateChanged', (state) => console.log(state));
 counter.actions.increment(); // { count: 1 }

@@ -17,6 +17,11 @@ export interface PeerMessagingDeps {
   webrtc: IActorClient<WebRTCActor>;
 }
 
+export interface PeerMessagingActions {
+  sendTo(peerId: string, message: Uint8Array): void;
+  broadcast(message: Uint8Array): void;
+}
+
 /**
  * PeerMessagingActor - Central coordinator for peer connections and message routing
  *
@@ -32,7 +37,7 @@ export interface PeerMessagingDeps {
  * - Encapsulates routing logic with the state it depends on
  * - Provides normalized messageReceived event for CollaborationActor
  */
-export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingEvents> {
+export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingActions, PeerMessagingEvents> {
   static readonly initialState: PeerMessagingState = {
     connectedPeers: [],
     peerTransports: {},

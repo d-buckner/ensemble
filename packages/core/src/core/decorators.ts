@@ -19,7 +19,6 @@ export interface EffectMetadata {
 // Metadata storage using WeakMaps for automatic garbage collection
 const actionMetadataMap = new WeakMap<any, ActionMetadata[]>();
 const effectMetadataMap = new WeakMap<any, EffectMetadata[]>();
-const threadMetadataMap = new WeakMap<any, string>();
 
 /**
  * Wraps a method with context management for error tracking
@@ -144,27 +143,4 @@ export function getEffectMetadata(actorClass: any): EffectMetadata[] {
   }
 
   return effects;
-}
-
-/**
- * @thread decorator - marks which thread an actor should run on
- *
- * Usage: @thread('worker-1')
- * class MyActor extends Actor { ... }
- *
- * If not specified, actors run on the main thread by default.
- */
-export function thread(threadId: string) {
-  return function<T extends { new(...args: any[]): {} }>(constructor: T) {
-    threadMetadataMap.set(constructor, threadId);
-    return constructor;
-  };
-}
-
-/**
- * Extract thread metadata from an actor class
- * Returns undefined if no @thread decorator was used (defaults to main thread)
- */
-export function getThreadMetadata(actorClass: any): string | undefined {
-  return threadMetadataMap.get(actorClass);
 }

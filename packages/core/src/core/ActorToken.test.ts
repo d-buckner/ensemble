@@ -3,7 +3,7 @@ import { Actor } from './Actor';
 import { createActorToken } from './ActorToken';
 
 // Mock actor for testing
-class TestActor extends Actor<Record<string, unknown>> {
+class TestActor extends Actor<Record<string, unknown>, {}, {}> {
   constructor() {
     super({});
   }

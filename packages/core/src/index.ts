@@ -4,7 +4,7 @@ export { ActorClient, AsyncActorClient, isAsyncActorClient, type ActionsOf, type
 export { SyncActorClient } from './core/SyncActorClient';
 export { default as ActorSystem } from './core/ActorSystem';
 export type { ActorRegistration } from './core/ActorSystem';
-export { action, effect, thread } from './core/decorators';
+export { action, effect } from './core/decorators';
 export { createActorToken } from './core/ActorToken';
 export type { ActorToken } from './core/ActorToken';
 
@@ -18,6 +18,10 @@ export type { MessageWithTargets, EventType } from './messaging/MainBus';
 
 // Utilities
 export { Logger, LogLevel } from './utils/Logger';
+
+// Configuration (types only - import ensemble.json directly in your app)
+export type { EnsembleConfig, ThreadConfig } from './config/types';
+export { ENSEMBLE_CONFIG_SCHEMA } from './config/types';
 
 // Worker infrastructure (for generated worker bundles)
 export { default as WorkerBus } from './messaging/WorkerBus';

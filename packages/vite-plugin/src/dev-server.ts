@@ -1,11 +1,7 @@
 import { statSync } from 'fs';
 import { bundleVirtualWorker, type BundleResult } from './bundle-worker';
-import { generateWorkerEntry } from './generate-worker-entry';
-import type { ActorInfo } from './scan-actors';
 import type { Connect, ViteDevServer } from 'vite';
-
-
-const RESOLVED_VIRTUAL_PREFIX = '\0virtual:ensemble-worker-';
+import type { EnsembleConfig, ThreadConfig } from '@d-buckner/ensemble-core';
 
 interface CachedBundle {
   result: BundleResult;
@@ -30,19 +26,14 @@ function isCacheStale(cached: CachedBundle): boolean {
 async function rebuildAndCache(
   virtualModuleId: string,
   threadId: string,
-  threadActors: ActorInfo[],
-  allActors: Map<string, ActorInfo>,
+  workerCode: string,
   projectRoot: string,
   bundleCache: Map<string, CachedBundle>,
   viteServer?: ViteDevServer
 ): Promise<BundleResult> {
   const bundleResult = await bundleVirtualWorker(
     virtualModuleId,
-    (id) => {
-      if (id === virtualModuleId) {
-        return generateWorkerEntry(threadId, threadActors, allActors);
-      }
-    },
+    (id) => id === virtualModuleId ? workerCode : undefined,
     projectRoot
   );
 
@@ -59,34 +50,30 @@ async function rebuildAndCache(
 
   // Notify Vite to reload modules that import workers
   if (viteServer) {
-    const workerModule = viteServer.moduleGraph.getModuleById(virtualModuleId);
-    if (workerModule) {
-      viteServer.moduleGraph.invalidateModule(workerModule);
-      viteServer.ws.send({
-        type: 'full-reload',
-        path: '*',
-      });
-    }
+    viteServer.ws.send({
+      type: 'full-reload',
+      path: '*',
+    });
   }
 
   return bundleResult;
 }
 
 /**
- * Creates a middleware to serve virtual worker bundles in development mode
+ * Creates a middleware to serve worker bundles in development mode
  * @param workerOutput The output directory for the worker (e.g., 'workers')
- * @param actorsByThread Map of threadId to ActorInfo[]
- * @param allActors Map of className to ActorInfo for all actors
+ * @param ensembleConfig The ensemble.json configuration
  * @param projectRoot The project root directory
  * @param viteServer Optional Vite dev server for HMR integration
+ * @param generateCode Function to generate worker entry code
  * @returns Connect middleware function
  */
 export function createWorkerMiddleware(
   workerOutput: string,
-  actorsByThread: Map<string, ActorInfo[]>,
-  allActors: Map<string, ActorInfo>,
+  ensembleConfig: EnsembleConfig,
   projectRoot: string,
-  viteServer?: ViteDevServer
+  viteServer: ViteDevServer | undefined,
+  generateCode: (config: ThreadConfig, root: string) => string
 ): Connect.NextHandleFunction {
   const bundleCache = new Map<string, CachedBundle>();
 
@@ -102,23 +89,24 @@ export function createWorkerMiddleware(
     // Extract threadId from URL: /workers/worker-1.js -> worker-1
     const threadId = url.slice(workerPathPrefix.length).replace(/\.js$/, '');
 
-    // Check if thread exists
-    const actors = actorsByThread.get(threadId);
-    if (!actors) {
+    // Check if thread exists in configuration
+    const threadConfig = ensembleConfig.threads[threadId];
+    if (!threadConfig) {
       res.statusCode = 404;
       res.end(`Thread not found: ${threadId}`);
       return;
     }
 
     try {
-      const virtualModuleId = RESOLVED_VIRTUAL_PREFIX + threadId;
+      const virtualModuleId = `\0virtual:ensemble-worker-${threadId}`;
+      const workerCode = generateCode(threadConfig, projectRoot);
       const cached = bundleCache.get(threadId);
 
       // Check if cache is still valid
       const shouldRebuild = !cached || isCacheStale(cached);
 
       const bundleResult = shouldRebuild
-        ? await rebuildAndCache(virtualModuleId, threadId, actors, allActors, projectRoot, bundleCache, viteServer)
+        ? await rebuildAndCache(virtualModuleId, threadId, workerCode, projectRoot, bundleCache, viteServer)
         : cached.result;
 
       res.setHeader('Content-Type', 'application/javascript');

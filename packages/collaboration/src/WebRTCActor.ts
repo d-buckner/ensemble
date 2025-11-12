@@ -12,6 +12,12 @@ import type { SignalData } from '@d-buckner/peer-pressure';
  * PeerMessagingActor coordinates by calling its actions
  */
 
+export interface WebRTCActions {
+  sendTo(peerId: string, message: Uint8Array): void;
+  connectToPeer(peerId: string): void;
+  handleSignaling(payload: SignalingPayload): void;
+  disconnectPeer(peerId: string): void;
+}
 
 /**
  * WebRTCActor - WebRTC P2P transport using peer-pressure
@@ -28,7 +34,7 @@ import type { SignalData } from '@d-buckner/peer-pressure';
  * - Fully decoupled from WebSocketActor (signaling coordinated via PeerMessagingActor)
  * - Throws error if sendTo() called on disconnected peer (PeerMessagingActor handles fallback)
  */
-export class WebRTCActor extends Actor<WebRTCState, WebRTCEvents> {
+export class WebRTCActor extends Actor<WebRTCState, WebRTCActions, WebRTCEvents> {
   static readonly initialState: WebRTCState = {
     peerConnectionStates: {},
   };

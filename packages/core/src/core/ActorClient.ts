@@ -1,13 +1,14 @@
 import { create, type Draft } from 'mutative';
 import EventEmitter from '../messaging/EventEmitter';
 import { PROTOCOL_EVENTS } from '../messaging/protocol-events';
-import type { Actor, StateOf } from './Actor';
-import type { IActorClient, ActionsOf, ClientAllEvents } from './types';
+import type { Actor, StateOf, ActionsOf } from './Actor';
+import type { IActorClient, ClientAllEvents } from './types';
 import type { IActorBus } from '../messaging/ActorBus';
 import type { TypedListener } from '../messaging/types';
 
 // Re-export shared types for backward compatibility
-export type { IActorClient, ActionsOf } from './types';
+export type { IActorClient } from './types';
+export type { ActionsOf } from './Actor';
 
 // Export AsyncActorClient as ActorClient for backward compatibility
 export { AsyncActorClient as ActorClient };
@@ -16,7 +17,7 @@ export { AsyncActorClient as ActorClient };
  * Type guard to check if a client is an AsyncActorClient
  * Useful for distinguishing between SyncActorClient and AsyncActorClient at runtime
  */
-export function isAsyncActorClient<TActor extends Actor<any, any>>(
+export function isAsyncActorClient<TActor extends Actor<any, any, any>>(
   client: IActorClient<TActor>
 ): client is AsyncActorClient<TActor> {
   return client instanceof AsyncActorClient;
@@ -34,7 +35,7 @@ export function isAsyncActorClient<TActor extends Actor<any, any>>(
  * - Custom events are subscribed via bus
  * - Requires state hydration on initialization
  */
-export class AsyncActorClient<TActor extends Actor<any, any>> implements IActorClient<TActor> {
+export class AsyncActorClient<TActor extends Actor<any, any, any>> implements IActorClient<TActor> {
   private _state: StateOf<TActor>;
   private bus: IActorBus<ClientAllEvents<TActor>>;
   private stateListeners: EventEmitter<StateOf<TActor>> = new EventEmitter();

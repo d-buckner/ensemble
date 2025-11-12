@@ -10,8 +10,14 @@ interface TodoDoc {
   todos: Array<{ id: string; text: string; done: boolean }>;
 }
 
+interface TodosActions {
+  addTodo(text: string): void;
+  toggleTodo(id: string): void;
+  removeTodo(id: string): void;
+}
+
 // Test actor that extends CollaborationActor
-class TodosActor extends CollaborationActor<TodoDoc> {
+class TodosActor extends CollaborationActor<TodoDoc, TodosActions> {
   static readonly initialState: TodoDoc = {
     todos: [],
   };
@@ -65,7 +71,12 @@ interface NestedDoc {
   };
 }
 
-class NestedActor extends CollaborationActor<NestedDoc> {
+interface NestedActions {
+  addUser(id: string, name: string, age: number): void;
+  addTag(userId: string, tag: string): void;
+}
+
+class NestedActor extends CollaborationActor<NestedDoc, NestedActions> {
   static readonly initialState: NestedDoc = {
     users: {},
   };

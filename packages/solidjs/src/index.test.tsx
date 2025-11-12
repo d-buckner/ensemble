@@ -14,11 +14,16 @@ interface CounterState extends Record<string, unknown> {
   label: string;
 }
 
+interface CounterActions {
+  increment(): void;
+  setLabel(label: string): void;
+}
+
 interface CounterEvents extends Record<string, unknown> {
   incremented: { oldValue: number; newValue: number };
 }
 
-class CounterActor extends Actor<CounterState, CounterEvents> {
+class CounterActor extends Actor<CounterState, CounterActions, CounterEvents> {
   static readonly initialState: CounterState = { count: 0, label: 'test' };
 
   constructor() {

@@ -1,4 +1,4 @@
-import { Actor, action, thread } from '@d-buckner/ensemble-core';
+import { Actor, action } from '@d-buckner/ensemble-core';
 import { createNoise2D } from 'simplex-noise';
 
 
@@ -46,6 +46,14 @@ export interface MetricGeneratorState {
   throughput: number; // target metrics per second
 }
 
+export interface MetricGeneratorActions {
+  start(): void;
+  stop(): void;
+  setBatchSize(size: number): void;
+  setThroughput(throughput: number): void;
+  setPaused(paused: boolean): void;
+}
+
 export interface MetricGeneratorEvents {
   metricBatch: MetricBatch;
 }
@@ -58,8 +66,7 @@ export interface MetricGeneratorEvents {
  * - Complex data structure generation
  * - Continuous streaming
  */
-@thread('worker-1')
-export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGeneratorEvents> {
+export class MetricGeneratorActor extends Actor<MetricGeneratorState, MetricGeneratorActions, MetricGeneratorEvents> {
   static readonly initialState: MetricGeneratorState = {
     isGenerating: false,
     batchesGenerated: 0,

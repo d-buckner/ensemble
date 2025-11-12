@@ -11,12 +11,16 @@ import type { ActorClient } from '../core/ActorClient';
   postMessage: vi.fn(),
 };
 
+interface TestActorActions {
+  increment(): void;
+  getValue(): void;
+}
+
 interface TestActorEvents {
-  increment: null;
   getValue: { value: number };
 }
 
-class TestActor extends Actor<{ count: number }, TestActorEvents> {
+class TestActor extends Actor<{ count: number }, TestActorActions, TestActorEvents> {
   static readonly initialState = { count: 0 };
 
   constructor(_options: {}) {
@@ -40,9 +44,7 @@ class TestActor extends Actor<{ count: number }, TestActorEvents> {
   }
 }
 
-interface AnotherActorEvents {}
-
-class AnotherActor extends Actor<{ value: string }, AnotherActorEvents> {
+class AnotherActor extends Actor<{ value: string }, {}, {}> {
   static readonly initialState = { value: 'hello' };
 
   constructor(_options: {}) {
@@ -51,11 +53,15 @@ class AnotherActor extends Actor<{ value: string }, AnotherActorEvents> {
 }
 
 // Test actors for effect functionality
+interface SourceActorActions {
+  emitData(value: number): void;
+}
+
 interface SourceActorEvents {
   dataEmitted: { value: number };
 }
 
-class SourceActor extends Actor<{ count: number }, SourceActorEvents> {
+class SourceActor extends Actor<{ count: number }, SourceActorActions, SourceActorEvents> {
   static readonly initialState = { count: 0 };
 
   constructor(_options: {}) {
@@ -72,7 +78,7 @@ interface ConsumerDeps {
   source: ActorClient<SourceActor>;
 }
 
-class ConsumerActor extends Actor<{ receivedValues: number[] }> {
+class ConsumerActor extends Actor<{ receivedValues: number[] }, {}, {}> {
   static readonly initialState = { receivedValues: [] };
 
   protected declare deps: ConsumerDeps;
@@ -390,7 +396,7 @@ describe('WorkerRuntime', () => {
         source: ActorClient<TestActor>;
       }
 
-      class StateConsumerActor extends Actor<{ lastCount: number }> {
+      class StateConsumerActor extends Actor<{ lastCount: number }, {}, {}> {
         static readonly initialState = { lastCount: -1 };
 
         protected declare deps: StateConsumerDeps;

@@ -34,8 +34,18 @@ export default defineConfig({
 ```typescript
 import { Actor, action, createActorToken, ActorSystem } from '@d-buckner/ensemble-core';
 
-class HeavyComputationActor extends Actor<{ result: number }> {
-  static readonly initialState = { result: 0 };
+interface ComputationState {
+  result: number;
+}
+
+interface ComputationActions {
+  compute(data: number[]): Promise<void>;
+}
+
+interface ComputationEvents {}
+
+class HeavyComputationActor extends Actor<ComputationState, ComputationActions, ComputationEvents> {
+  static readonly initialState: ComputationState = { result: 0 };
 
   @action
   async compute(data: number[]): Promise<void> {

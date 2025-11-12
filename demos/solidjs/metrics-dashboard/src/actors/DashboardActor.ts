@@ -24,6 +24,8 @@ export interface DashboardState {
   windowSize: number; // Number of data points to keep
 }
 
+export interface DashboardActions {}
+
 interface DashboardDeps {
   StatisticsActor: ActorClient<StatisticsActor>;
   AnomalyDetectionActor: ActorClient<AnomalyDetectionActor>;
@@ -40,7 +42,7 @@ interface DashboardDeps {
  *
  * Runs on MAIN THREAD for direct UI access
  */
-export class DashboardActor extends Actor<DashboardState> {
+export class DashboardActor extends Actor<DashboardState, DashboardActions> {
   static readonly initialState: DashboardState = {
     chartData: {
       cpuSeries: [],

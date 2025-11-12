@@ -12,15 +12,18 @@ interface CounterState extends Record<string, unknown> {
   name: string;
 }
 
+interface CounterActions {
+  increment(): void;
+  decrement(): void;
+  setName(name: string): void;
+  reset(): void;
+}
+
 interface CounterEvents extends Record<string, unknown> {
-  increment: null;
-  decrement: null;
-  setName: [name: string];
-  reset: null;
   incremented: { oldValue: number; newValue: number };
 }
 
-export class CounterActor extends Actor<CounterState, CounterEvents> {
+export class CounterActor extends Actor<CounterState, CounterActions, CounterEvents> {
   static readonly initialState: CounterState = {
     count: 0,
     name: 'test'
@@ -78,14 +81,16 @@ interface CollectionState extends Record<string, unknown> {
   filter: string;
 }
 
-interface CollectionEvents {
-  addItem: [id: string, value: number];
-  removeItem: [id: string];
-  updateItem: [id: string, value: number];
-  setFilter: [filter: string];
+interface CollectionActions {
+  addItem(id: string, value: number): void;
+  removeItem(id: string): void;
+  updateItem(id: string, value: number): void;
+  setFilter(filter: string): void;
 }
 
-export class CollectionActor extends Actor<CollectionState, CollectionEvents> {
+interface CollectionEvents {}
+
+export class CollectionActor extends Actor<CollectionState, CollectionActions, CollectionEvents> {
   static readonly initialState: CollectionState = {
     items: [],
     filter: ''
@@ -132,13 +137,15 @@ interface ErrorProneState extends Record<string, unknown> {
   value: number;
 }
 
-interface ErrorProneEvents {
-  throwError: null;
-  throwInAction: null;
-  safeAction: null;
+interface ErrorProneActions {
+  throwError(): void;
+  throwInAction(): void;
+  safeAction(): void;
 }
 
-export class ErrorProneActor extends Actor<ErrorProneState, ErrorProneEvents> {
+interface ErrorProneEvents {}
+
+export class ErrorProneActor extends Actor<ErrorProneState, ErrorProneActions, ErrorProneEvents> {
   static readonly initialState: ErrorProneState = {
     value: 0
   };

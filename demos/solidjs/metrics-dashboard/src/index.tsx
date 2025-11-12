@@ -7,10 +7,12 @@ import { MetricGeneratorActor } from './actors/MetricGeneratorActor';
 import { StatisticsActor } from './actors/StatisticsActor';
 import { App } from './App';
 import { GeneratorToken, StatisticsToken, AnomalyDetectionToken, DashboardToken } from './tokens';
+import ensembleConfig from '../ensemble.json';
 
 
 async function main() {
-  const system = new ActorSystem();
+  // Load thread configuration from ensemble.json
+  const system = new ActorSystem(ensembleConfig);
 
   // Register actors in dependency order
   system.register({

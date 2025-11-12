@@ -10,7 +10,16 @@ interface TestState {
   name: string;
 }
 
-class TestActor extends Actor<TestState> {
+interface TestActions {
+  increment(): void;
+  setName(name: string): void;
+  incrementAndRename(name: string): void;
+  setCount(count: number): void;
+  multipleUpdates(count: number, name: string): void;
+  incrementTwice(): void;
+}
+
+class TestActor extends Actor<TestState, TestActions, {}> {
   static readonly initialState: TestState = { count: 0, name: 'test' };
 
   constructor() {

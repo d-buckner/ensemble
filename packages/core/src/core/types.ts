@@ -1,17 +1,5 @@
-import type { Actor, StateOf, EventsOf } from './Actor';
+import type { Actor, StateOf, ActionsOf, EventsOf } from './Actor';
 import type { AllEvents, TypedListener } from '../messaging/types';
-
-// Exclude all base Actor class methods and properties
-type BaseActorKeys = keyof Actor<any, any>;
-
-/**
- * Extract only the methods defined on the concrete actor, excluding base class members
- */
-export type ActionsOf<TActor> = {
-  [K in Exclude<keyof TActor, BaseActorKeys>]: TActor[K] extends (...args: any[]) => any
-    ? TActor[K]
-    : never;
-};
 
 /**
  * Helper type combining state property events and custom events
@@ -31,7 +19,7 @@ export type ClientAllEvents<TActor> = AllEvents<StateOf<TActor>, EventsOf<TActor
  * - SyncActorClient: For main-thread actors, provides direct synchronous access
  * - AsyncActorClient: For worker-thread actors, maintains a hydrated state cache
  */
-export interface IActorClient<TActor extends Actor<any, any>> {
+export interface IActorClient<TActor extends Actor<any, any, any>> {
   /**
    * Current state of the actor.
    *

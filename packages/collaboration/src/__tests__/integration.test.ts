@@ -18,8 +18,15 @@ interface CounterDoc {
   lastEditor: string | null;
 }
 
+interface CounterActions {
+  increment(editorId: string): void;
+  decrement(editorId: string): void;
+  add(value: number, editorId: string): void;
+  reset(): void;
+}
+
 // Test actor that extends CollaborationActor
-class CounterActor extends CollaborationActor<CounterDoc> {
+class CounterActor extends CollaborationActor<CounterDoc, CounterActions> {
   static readonly initialState: CounterDoc = {
     count: 0,
     lastEditor: null,

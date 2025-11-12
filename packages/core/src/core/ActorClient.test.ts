@@ -11,13 +11,16 @@ interface TestState extends Record<string, unknown> {
   name: string;
 }
 
+interface TestActions {
+  increment(): void;
+  setName(name: string): void;
+}
+
 interface TestEvents extends Record<string, unknown> {
-  increment: null;
-  setName: [name: string];
   incremented: { oldValue: number; newValue: number };
 }
 
-class TestActor extends Actor<TestState, TestEvents> {
+class TestActor extends Actor<TestState, TestActions, TestEvents> {
   static readonly initialState: TestState = {
     count: 0,
     name: 'test'
@@ -197,7 +200,11 @@ describe('ActorClient', () => {
     });
 
     it('should handle multiple arguments', () => {
-      class MultiArgActor extends Actor {
+      interface MultiArgActions {
+        multiArg(a: number, b: string, c: boolean): void;
+      }
+
+      class MultiArgActor extends Actor<{}, MultiArgActions, {}> {
         constructor() {
           super({});
         }

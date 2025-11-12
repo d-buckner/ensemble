@@ -4,7 +4,7 @@ import type { Actor } from './Actor';
  * Type-safe token for identifying an actor instance.
  * Carries the actor type information for full type inference.
  */
-export interface ActorToken<T extends Actor> {
+export interface ActorToken<T extends Actor<any, any, any>> {
   readonly __type: T;
   readonly symbol: symbol;
   readonly id: string;
@@ -19,7 +19,7 @@ export interface ActorToken<T extends Actor> {
  * system.register({ token: CounterToken, actor: CounterActor, ... });
  * const counter = createActor(CounterToken); // Type automatically inferred!
  */
-export function createActorToken<T extends Actor>(id: string): ActorToken<T> {
+export function createActorToken<T extends Actor<any, any, any>>(id: string): ActorToken<T> {
   return {
     __type: undefined as any,
     symbol: Symbol(id),

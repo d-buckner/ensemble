@@ -26,7 +26,11 @@ export interface CollaborationDeps {
  *   todos: Array<{ id: string; text: string; done: boolean }>;
  * }
  *
- * class TodosActor extends CollaborationActor<TodoDoc> {
+ * interface TodoActions {
+ *   addTodo(text: string): void;
+ * }
+ *
+ * class TodosActor extends CollaborationActor<TodoDoc, TodoActions> {
  *   static readonly initialState: TodoDoc = { todos: [] };
  *
  *   constructor() {
@@ -42,7 +46,10 @@ export interface CollaborationDeps {
  * }
  * ```
  */
-export class CollaborationActor<TDoc extends Record<string, any> = Record<string, any>> extends Actor<TDoc, CollaborationEvents> {
+export class CollaborationActor<
+  TDoc extends Record<string, any> = Record<string, any>,
+  TActions = {}
+> extends Actor<TDoc, TActions, CollaborationEvents> {
   // Automerge internals (private, NOT in state)
   // Null until roomJoined - allows offline-first usage before peers connect
   private automergeDoc: AutomergeDoc<TDoc> | null = null;

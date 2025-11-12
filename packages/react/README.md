@@ -26,7 +26,13 @@ interface CounterState {
   count: number;
 }
 
-class CounterActor extends Actor<CounterState> {
+interface CounterActions {
+  increment(): void;
+}
+
+interface CounterEvents {}
+
+class CounterActor extends Actor<CounterState, CounterActions, CounterEvents> {
   static readonly initialState: CounterState = { count: 0 };
 
   @action

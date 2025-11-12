@@ -52,7 +52,7 @@ interface IActorClient<TActor> {
 ### 2. ActorClient Implementation
 
 ```typescript
-export class ActorClient<TActor extends Actor<any, any>>
+export class ActorClient<TActor extends Actor<any, any, any>>
   implements IActorClient<TActor> {
 
   private actorRef: TActor;
@@ -589,7 +589,9 @@ onWorkerCompleted(result) {
 
 **Main-thread actor depending on worker actor:**
 ```typescript
-class MainThreadActor extends Actor<State, Events> {
+interface MainThreadActions {}
+
+class MainThreadActor extends Actor<State, MainThreadActions, Events> {
   // deps.workerActor is WorkerActorClient (async)
   // deps.mainThreadActor is ActorClient (sync, main thread)
 
@@ -649,14 +651,16 @@ class MainThreadActor extends Actor<State, Events> {
 
 **To worker:**
 ```typescript
+interface DataProcessorActions {}
+
 // Before: Main thread (sync)
-class DataProcessor extends Actor<State, Events> {
+class DataProcessor extends Actor<State, DataProcessorActions, Events> {
   // ...
 }
 
 // After: Worker thread (async)
 @thread('background-worker')
-class DataProcessor extends Actor<State, Events> {
+class DataProcessor extends Actor<State, DataProcessorActions, Events> {
   // No other changes needed
   // Client code unchanged (same IActorClient interface)
 }
@@ -664,14 +668,16 @@ class DataProcessor extends Actor<State, Events> {
 
 **To main thread:**
 ```typescript
+interface UIStateManagerActions {}
+
 // Before: Worker thread
 @thread('background-worker')
-class UIStateManager extends Actor<State, Events> {
+class UIStateManager extends Actor<State, UIStateManagerActions, Events> {
   // ...
 }
 
 // After: Main thread (just remove decorator)
-class UIStateManager extends Actor<State, Events> {
+class UIStateManager extends Actor<State, UIStateManagerActions, Events> {
   // Automatically becomes synchronous
 }
 ```
@@ -851,7 +857,9 @@ riskyOperation() {
 **How do async lifecycle hooks work with sync actors?**
 
 ```typescript
-class MyActor extends Actor<State, Events> {
+interface MyActorActions {}
+
+class MyActor extends Actor<State, MyActorActions, Events> {
   async onInit() {
     await this.loadData(); // Async operation
   }
@@ -916,7 +924,11 @@ This allows devtools/visualization to monitor main-thread actors without product
 **What if an actor has both main-thread and worker dependencies?**
 
 ```typescript
-class HybridActor extends Actor<State, Events> {
+interface HybridActions {
+  refresh(): void;
+}
+
+class HybridActor extends Actor<State, HybridActions, Events> {
   declare deps: {
     uiState: IActorClient<UIStateActor>;      // ActorClient (main thread, sync)
     dataWorker: IActorClient<DataWorkerActor>; // WorkerActorClient (worker, async)

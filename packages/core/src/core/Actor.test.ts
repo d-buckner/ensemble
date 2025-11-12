@@ -11,15 +11,18 @@ interface TestState extends Record<string, unknown> {
   items: Array<{ id: string; value: number }>;
 }
 
+interface TestActions {
+  increment(): void;
+  setName(name: string): void;
+  addItem(id: string, value: number): void;
+  updateItemValue(id: string, value: number): void;
+}
+
 interface TestEvents {
-  increment: null;
-  setName: [name: string];
-  addItem: [id: string, value: number];
-  updateItemValue: [id: string, value: number];
   customEvent: { message: string };
 }
 
-class TestActor extends Actor<TestState, TestEvents> {
+class TestActor extends Actor<TestState, TestActions, TestEvents> {
   static readonly initialState: TestState = {
     count: 0,
     name: 'test',
@@ -359,7 +362,7 @@ describe('Actor', () => {
     it('should call onInit hook if defined', async () => {
       const initSpy = vi.fn();
 
-      class LifecycleActor extends Actor {
+      class LifecycleActor extends Actor<{}, {}, {}> {
         constructor() {
           super({});
         }
@@ -390,7 +393,7 @@ describe('Actor', () => {
     it('should support async onInit hook', async () => {
       const initSpy = vi.fn();
 
-      class AsyncLifecycleActor extends Actor {
+      class AsyncLifecycleActor extends Actor<{}, {}, {}> {
         constructor() {
           super({});
         }

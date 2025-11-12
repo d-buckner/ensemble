@@ -19,12 +19,18 @@ export interface ActorMetadata {
 /**
  * Extract state type from Actor class
  */
-export type StateOf<T> = T extends Actor<infer S, any> ? S : never;
+export type StateOf<T> = T extends Actor<infer S, any, any> ? S : never;
+
+/**
+ * Extract actions type from Actor class via indexed access type
+ * This approach works better with TypeScript's inference than conditional types
+ */
+export type ActionsOf<T extends Actor<any, any, any>> = T['__actionsType'];
 
 /**
  * Extract events type from Actor class
  */
-export type EventsOf<T> = T extends Actor<any, infer E> ? E : never;
+export type EventsOf<T> = T extends Actor<any, any, infer E> ? E : never;
 
 /**
  * StateShape enforces that all state keys (including optional ones) are present.
@@ -49,8 +55,12 @@ export interface ActorConstructor<T extends Actor = Actor> {
 
 export abstract class Actor<
   TState = any,
-  TEvents = any
+  TActions = {},
+  TEvents = {}
 > {
+  // Type property for extracting TActions via indexed access (not used at runtime)
+  readonly __actionsType!: TActions;
+
   // Bus is only used for worker-thread actors (cross-thread communication)
   public bus?: IActorBus<AllEvents<TState, TEvents>>;
 

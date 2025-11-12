@@ -6,8 +6,15 @@ export interface TodoDoc {
   todos: Array<{ id: string; text: string; done: boolean }>;
 }
 
+// Define actions
+export interface TodosActions {
+  addTodo(text: string): void;
+  toggleTodo(id: string): void;
+  removeTodo(id: string): void;
+}
+
 // Extend CollaborationActor with domain actions
-export class TodosActor extends CollaborationActor<TodoDoc> {
+export class TodosActor extends CollaborationActor<TodoDoc, TodosActions> {
   protected declare deps: CollaborationDeps;
   static readonly initialState: TodoDoc = {
     todos: []

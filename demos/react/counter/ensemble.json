@@ -1,0 +1,13 @@
+{
+  "$schema": "../../../ensemble.schema.json",
+  "threads": {
+    "counter": {
+      "actors": [
+        {
+          "path": "./src/actors/CounterActor.ts",
+          "name": "CounterActor"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../ensemble.schema.json",
+  "threads": {
+    "worker-1": {
+      "actors": [
+        {
+          "path": "./src/actors/MetricGeneratorActor.ts",
+          "name": "MetricGeneratorActor"
+        },
+        {
+          "path": "./src/actors/StatisticsActor.ts",
+          "name": "StatisticsActor"
+        }
+      ]
+    },
+    "worker-2": {
+      "actors": [
+        {
+          "path": "./src/actors/AnomalyDetectionActor.ts",
+          "name": "AnomalyDetectionActor"
+        }
+      ]
+    }
+  }
+}
