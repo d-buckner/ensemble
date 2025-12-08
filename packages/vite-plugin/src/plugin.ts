@@ -66,7 +66,7 @@ export function ensemblePlugin(options: EnsemblePluginOptions = {}): Plugin {
         // Build mode: Bundle workers with dependencies
         for (const [threadId, threadConfig] of Object.entries(ensembleConfig.threads)) {
           const virtualModuleId = `\0virtual:ensemble-worker-${threadId}`;
-          const workerCode = generateWorkerEntryCode(threadConfig, config.root);
+          const workerCode = generateWorkerEntryCode(threadConfig, threadId);
 
           try {
             const bundleResult = await bundleVirtualWorker(

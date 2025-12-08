@@ -61,7 +61,7 @@ export class WorkerRegistry {
       throw new Error(`Worker path not found in manifest for threadId: ${threadId}`);
     }
 
-    const worker = new Worker(workerPath);
+    const worker = new Worker(workerPath, { type: 'module' });
 
     // Attach message handler if already set
     if (this.messageHandler) {

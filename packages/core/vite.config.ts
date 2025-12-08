@@ -9,7 +9,6 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, 'src/index.ts'),
-        'threading/worker-entry': resolve(__dirname, 'src/threading/worker-entry.ts'),
       },
       name: 'EnsembleCore',
       formats: ['es'],

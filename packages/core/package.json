@@ -10,9 +10,13 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./worker": {
-      "types": "./dist/threading/worker-entry.d.ts",
-      "default": "./dist/threading/worker-entry.js"
+    "./worker/bus": {
+      "types": "./dist/messaging/WorkerBus.d.ts",
+      "default": "./dist/messaging/WorkerBus.js"
+    },
+    "./worker/runtime": {
+      "types": "./dist/threading/WorkerRuntime.d.ts",
+      "default": "./dist/threading/WorkerRuntime.js"
     }
   },
   "files": [

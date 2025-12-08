@@ -73,7 +73,7 @@ export function createWorkerMiddleware(
   ensembleConfig: EnsembleConfig,
   projectRoot: string,
   viteServer: ViteDevServer | undefined,
-  generateCode: (config: ThreadConfig, root: string) => string
+  generateCode: (config: ThreadConfig, threadId: string) => string
 ): Connect.NextHandleFunction {
   const bundleCache = new Map<string, CachedBundle>();
 
@@ -99,7 +99,7 @@ export function createWorkerMiddleware(
 
     try {
       const virtualModuleId = `\0virtual:ensemble-worker-${threadId}`;
-      const workerCode = generateCode(threadConfig, projectRoot);
+      const workerCode = generateCode(threadConfig, threadId);
       const cached = bundleCache.get(threadId);
 
       // Check if cache is still valid

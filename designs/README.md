@@ -28,7 +28,8 @@ Design for `@d-buckner/ensemble-collaboration` - a package providing collaborati
 
 See the `implemented/` directory for designs that have been implemented:
 
-- **Thread Scheduling System** - Background thread scheduler for CPU-intensive actors
+- **Worker Build System** - Vite plugin for automatic Web Worker bundling from ensemble.json
+- **Thread Scheduling System** - Per-thread state batching with ThreadContext
 - **Effect System** - Reactive communication between actors
 
 ## Contributing Design Documents

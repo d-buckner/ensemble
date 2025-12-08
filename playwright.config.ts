@@ -41,7 +41,7 @@ export default defineConfig({
       name: 'counter-react',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: 'http://localhost:5173',
+        baseURL: 'http://localhost:3001',
       },
       testMatch: '**/counter-react.spec.ts',
     },

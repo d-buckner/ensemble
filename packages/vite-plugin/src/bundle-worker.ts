@@ -74,8 +74,7 @@ export async function bundleVirtualWorker(
 
   try {
     const { output } = await bundle.generate({
-      format: 'iife',
-      name: 'EnsembleWorker',
+      format: 'es',
     });
 
     const chunk = output.find(item => item.type === 'chunk');
