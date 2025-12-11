@@ -14,11 +14,20 @@ interface MockSocket {
   _triggerEvent: (event: string, data?: any) => void;
 }
 
+interface IoOptions {
+  autoConnect?: boolean;
+  withCredentials?: boolean;
+  query?: Record<string, string>;
+  auth?: Record<string, unknown>;
+}
+
 let mockSocket: MockSocket | null = null;
+let lastIoOptions: IoOptions | null = null;
 
 vi.mock('socket.io-client', () => {
   return {
-    io: vi.fn((_url: string, _options: any) => {
+    io: vi.fn((_url: string, options: IoOptions) => {
+      lastIoOptions = options;
       mockSocket = {
         id: 'mock-socket-id',
         connected: false,
@@ -63,6 +72,7 @@ describe('WebSocketActor', () => {
 
   beforeEach(async () => {
     mockSocket = null;
+    lastIoOptions = null;
     vi.clearAllMocks();
 
     system = new ActorSystem();
@@ -456,6 +466,178 @@ describe('WebSocketActor', () => {
       await flushMicrotask();
 
       expect(client!.state.connectionState).toBe('reconnecting');
+    });
+  });
+
+  describe('Authentication Configuration', () => {
+    it('should store authConfig in state on initialize', async () => {
+      const client = system.getClient(WebSocketToken)!;
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room',
+        authConfig: {
+          withCredentials: true,
+          query: { displayName: 'TestUser' },
+        }
+      });
+      await flushMicrotask();
+
+      expect(client.state.authConfig).toEqual({
+        withCredentials: true,
+        query: { displayName: 'TestUser' },
+      });
+    });
+
+    it('should default authConfig to null when not provided', async () => {
+      const client = system.getClient(WebSocketToken)!;
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room'
+      });
+      await flushMicrotask();
+
+      expect(client.state.authConfig).toBeNull();
+    });
+
+    it('should pass withCredentials to Socket.IO', async () => {
+      const client = system.getClient(WebSocketToken)!;
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room',
+        authConfig: {
+          withCredentials: true,
+        }
+      });
+      await flushMicrotask();
+
+      client.actions.connect();
+      await flushMicrotask();
+
+      expect(lastIoOptions?.withCredentials).toBe(true);
+    });
+
+    it('should pass query parameters to Socket.IO', async () => {
+      const client = system.getClient(WebSocketToken)!;
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room',
+        authConfig: {
+          query: { displayName: 'TestUser', roomId: 'test-room' },
+        }
+      });
+      await flushMicrotask();
+
+      client.actions.connect();
+      await flushMicrotask();
+
+      expect(lastIoOptions?.query).toEqual({
+        displayName: 'TestUser',
+        roomId: 'test-room',
+      });
+    });
+
+    it('should pass auth token string as { token } object', async () => {
+      const client = system.getClient(WebSocketToken)!;
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room',
+        authConfig: {
+          auth: 'my-secret-token',
+        }
+      });
+      await flushMicrotask();
+
+      client.actions.connect();
+      await flushMicrotask();
+
+      expect(lastIoOptions?.auth).toEqual({ token: 'my-secret-token' });
+    });
+
+    it('should pass auth object directly to Socket.IO', async () => {
+      const client = system.getClient(WebSocketToken)!;
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room',
+        authConfig: {
+          auth: { token: 'my-token', userId: 'user-123' },
+        }
+      });
+      await flushMicrotask();
+
+      client.actions.connect();
+      await flushMicrotask();
+
+      expect(lastIoOptions?.auth).toEqual({ token: 'my-token', userId: 'user-123' });
+    });
+
+    it('should default withCredentials to false when not specified', async () => {
+      const client = system.getClient(WebSocketToken)!;
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room',
+        authConfig: {
+          query: { foo: 'bar' },
+        }
+      });
+      await flushMicrotask();
+
+      client.actions.connect();
+      await flushMicrotask();
+
+      expect(lastIoOptions?.withCredentials).toBe(false);
+    });
+
+    it('should not set auth when not provided', async () => {
+      const client = system.getClient(WebSocketToken)!;
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room',
+        authConfig: {
+          withCredentials: true,
+        }
+      });
+      await flushMicrotask();
+
+      client.actions.connect();
+      await flushMicrotask();
+
+      expect(lastIoOptions?.auth).toBeUndefined();
+    });
+
+    it('should emit connectionError on connect_error', async () => {
+      const client = system.getClient(WebSocketToken)!;
+      const errorHandler = vi.fn();
+
+      client.on('connectionError', errorHandler);
+
+      client.actions.initialize({
+        url: 'http://localhost:3000',
+        roomId: 'test-room',
+        authConfig: { withCredentials: true }
+      });
+      await flushMicrotask();
+
+      client.actions.connect();
+      await flushMicrotask();
+      await flushMicrotask();
+
+      // Simulate connection error
+      const error = Object.assign(new Error('Session required'), { data: { code: 401 } });
+      mockSocket!._triggerEvent('connect_error', error);
+      await flushMicrotask();
+
+      expect(errorHandler).toHaveBeenCalledWith({
+        message: 'Session required',
+        data: { code: 401 },
+      });
     });
   });
 });

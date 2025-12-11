@@ -2,6 +2,7 @@ import { Actor, action, effect, type IActorClient } from '@d-buckner/ensemble-co
 import type {
   PeerMessagingState,
   PeerMessagingEvents,
+  PeerMetadata,
   MessagePayload,
   SignalingPayload,
   RoomJoinedPayload,
@@ -20,6 +21,8 @@ export interface PeerMessagingDeps {
 export interface PeerMessagingActions {
   sendTo(peerId: string, message: Uint8Array): void;
   broadcast(message: Uint8Array): void;
+  setLocalMetadata(metadata: PeerMetadata): void;
+  updatePeerMetadata(peerId: string, metadata: PeerMetadata): void;
 }
 
 /**
@@ -41,6 +44,8 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingA
   static readonly initialState: PeerMessagingState = {
     connectedPeers: [],
     peerTransports: {},
+    peerMetadata: {},
+    localMetadata: null,
   };
 
   protected declare deps: PeerMessagingDeps;
@@ -103,6 +108,39 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingA
   }
 
   // ========================================
+  // Actions: Metadata management
+  // ========================================
+
+  /**
+   * Set metadata for the local user.
+   * This metadata can be shared with peers when they connect.
+   *
+   * @param metadata - Metadata object (displayName, instrument, color, etc.)
+   */
+  @action
+  setLocalMetadata(metadata: PeerMetadata): void {
+    this.setState(draft => {
+      draft.localMetadata = metadata;
+    });
+  }
+
+  /**
+   * Update metadata for a specific peer.
+   * Typically called when receiving metadata updates from the network.
+   *
+   * @param peerId - ID of the peer
+   * @param metadata - Metadata object for the peer
+   */
+  @action
+  updatePeerMetadata(peerId: string, metadata: PeerMetadata): void {
+    this.setState(draft => {
+      draft.peerMetadata[peerId] = metadata;
+    });
+
+    this.emit('metadataChanged', { peerId, metadata });
+  }
+
+  // ========================================
   // Effects: WebSocket events
   // ========================================
 
@@ -161,7 +199,7 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingA
   /**
    * Handle peer left via WebSocket.
    * Removes peer from state and emits peerDisconnected.
-   * Also disconnects WebRTC connection.
+   * Also disconnects WebRTC connection and cleans up metadata.
    */
   @effect('websocket.peerLeft')
   private handleWebSocketPeerLeft(peerId: string): void {
@@ -172,6 +210,7 @@ export class PeerMessagingActor extends Actor<PeerMessagingState, PeerMessagingA
     this.setState(draft => {
       draft.connectedPeers = draft.connectedPeers.filter(id => id !== peerId);
       delete draft.peerTransports[peerId];
+      delete draft.peerMetadata[peerId];
     });
 
     // Disconnect WebRTC

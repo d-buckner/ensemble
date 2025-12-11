@@ -16,18 +16,22 @@ export { WebRTCActor } from './WebRTCActor';
 export type {
   // PeerMessaging types
   TransportType,
+  PeerMetadata,
   PeerMessagingState,
   PeerMessagingEvents,
   MessagePayload,
   SignalingPayload,
   TransportChangedPayload,
+  MetadataChangedPayload,
 
   // WebSocket types
   ConnectionState,
   WebSocketConfig,
+  WebSocketAuthConfig,
   WebSocketState,
   WebSocketEvents,
   RoomJoinedPayload,
+  ConnectionErrorPayload,
 
   // WebRTC types
   PeerConnectionState,

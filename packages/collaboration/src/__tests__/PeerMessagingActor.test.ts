@@ -1,5 +1,5 @@
 import { ActorSystem, createActorToken } from '@d-buckner/ensemble-core';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PeerMessagingActor } from '../PeerMessagingActor';
 import { WebRTCActor } from '../WebRTCActor';
 import { WebSocketActor } from '../WebSocketActor';
@@ -170,6 +170,87 @@ describe('PeerMessagingActor', () => {
       const message = new Uint8Array([]);
 
       expect(() => client.actions.broadcast(message)).not.toThrow();
+    });
+  });
+
+  describe('Peer Metadata', () => {
+    it('should start with empty peerMetadata and null localMetadata', () => {
+      const client = system.getClient(PeerMessagingToken)!;
+
+      expect(client.state.peerMetadata).toEqual({});
+      expect(client.state.localMetadata).toBeNull();
+    });
+
+    it('should set local metadata', async () => {
+      const client = system.getClient(PeerMessagingToken)!;
+
+      client.actions.setLocalMetadata({ displayName: 'TestUser', instrument: 'piano' });
+      await flushMicrotask();
+
+      expect(client.state.localMetadata).toEqual({
+        displayName: 'TestUser',
+        instrument: 'piano',
+      });
+    });
+
+    it('should update local metadata with new values', async () => {
+      const client = system.getClient(PeerMessagingToken)!;
+
+      client.actions.setLocalMetadata({ displayName: 'User1' });
+      await flushMicrotask();
+
+      client.actions.setLocalMetadata({ displayName: 'User2', color: 'blue' });
+      await flushMicrotask();
+
+      expect(client.state.localMetadata).toEqual({
+        displayName: 'User2',
+        color: 'blue',
+      });
+    });
+
+    it('should update peer metadata', async () => {
+      const client = system.getClient(PeerMessagingToken)!;
+
+      client.actions.updatePeerMetadata('peer-123', { displayName: 'RemoteUser', instrument: 'synth' });
+      await flushMicrotask();
+
+      expect(client.state.peerMetadata['peer-123']).toEqual({
+        displayName: 'RemoteUser',
+        instrument: 'synth',
+      });
+    });
+
+    it('should update metadata for multiple peers', async () => {
+      const client = system.getClient(PeerMessagingToken)!;
+
+      client.actions.updatePeerMetadata('peer-1', { displayName: 'Alice' });
+      client.actions.updatePeerMetadata('peer-2', { displayName: 'Bob' });
+      await flushMicrotask();
+
+      expect(client.state.peerMetadata['peer-1']).toEqual({ displayName: 'Alice' });
+      expect(client.state.peerMetadata['peer-2']).toEqual({ displayName: 'Bob' });
+    });
+
+    it('should emit metadataChanged event when updating peer metadata', async () => {
+      const client = system.getClient(PeerMessagingToken)!;
+      const metadataHandler = vi.fn();
+
+      client.on('metadataChanged', metadataHandler);
+
+      client.actions.updatePeerMetadata('peer-123', { displayName: 'TestUser' });
+      await flushMicrotask();
+
+      expect(metadataHandler).toHaveBeenCalledWith({
+        peerId: 'peer-123',
+        metadata: { displayName: 'TestUser' },
+      });
+    });
+
+    it('should handle empty metadata object', async () => {
+      const client = system.getClient(PeerMessagingToken)!;
+
+      expect(() => client.actions.setLocalMetadata({})).not.toThrow();
+      expect(() => client.actions.updatePeerMetadata('peer-1', {})).not.toThrow();
     });
   });
 

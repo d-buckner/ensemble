@@ -4,6 +4,7 @@ import type {
   WebSocketState,
   WebSocketEvents,
   WebSocketConfig,
+  WebSocketAuthConfig,
 } from './types';
 import type { SignalData } from '@d-buckner/peer-pressure';
 
@@ -36,6 +37,7 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketActions, WebS
     roomId: '',
     peerId: null,
     connectionState: 'disconnected',
+    authConfig: null,
   };
 
   private socket: Socket | null = null;
@@ -51,13 +53,14 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketActions, WebS
    * Initialize the WebSocket connection configuration.
    * Must be called before connect().
    *
-   * @param config - Configuration with Socket.IO URL and room ID
+   * @param config - Configuration with Socket.IO URL, room ID, and optional auth
    */
   @action
   initialize(config: WebSocketConfig): void {
     this.setState(draft => {
       draft.url = config.url;
       draft.roomId = config.roomId;
+      draft.authConfig = config.authConfig ?? null;
     });
   }
 
@@ -68,6 +71,11 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketActions, WebS
   /**
    * Connect to Socket.IO server and join room.
    * Server will assign a unique peer ID and return list of existing peers.
+   *
+   * Uses auth configuration if provided during initialize():
+   * - withCredentials: Include cookies for session-based auth
+   * - query: Custom query parameters (displayName, etc.)
+   * - auth: Socket.IO auth payload (token-based auth)
    */
   @action
   connect(): void {
@@ -84,12 +92,31 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketActions, WebS
     });
     this.emit('connectionStateChanged', 'connecting');
 
+    const authConfig = this.state.authConfig;
     this.socket = io(this.state.url, {
       autoConnect: false,
+      withCredentials: authConfig?.withCredentials ?? false,
+      query: authConfig?.query,
+      auth: this.buildAuthPayload(authConfig),
     });
 
     this.setupSocketListeners();
     this.socket.connect();
+  }
+
+  /**
+   * Build the auth payload for Socket.IO from auth config.
+   */
+  private buildAuthPayload(authConfig: WebSocketAuthConfig | null): Record<string, unknown> | undefined {
+    if (!authConfig?.auth) {
+      return undefined;
+    }
+
+    if (typeof authConfig.auth === 'string') {
+      return { token: authConfig.auth };
+    }
+
+    return authConfig.auth;
   }
 
   /**
@@ -231,12 +258,13 @@ export class WebSocketActor extends Actor<WebSocketState, WebSocketActions, WebS
     });
 
     // Error handling
-    this.socket.on('connect_error', (error: Error) => {
+    this.socket.on('connect_error', (error: Error & { data?: unknown }) => {
       console.error('[WebSocketActor] Connection error:', error.message);
+      this.emit('connectionError', { message: error.message, data: error.data });
       this.throw('Socket.IO connection error', { error: error.message });
     });
 
-    this.socket.on('error', (error: any) => {
+    this.socket.on('error', (error: unknown) => {
       console.error('[WebSocketActor] Server error:', error);
     });
   }
