@@ -4,16 +4,17 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 
-## Overview
+## Context
 
 This started as a state machine for [p2piano.com](https://p2piano.com), as the combination of p2p networking and the audio syncronization engine has some performance challenges to get smooth on a browser. **I would not advice anyone to use this unless you're interested in the experiment**. It still has a long way to go before having a good dx.
 
+
+## Overview
 Ensemble is a frontend framework for building complex applications using the actor model. It enables developers to organize application logic into independent, composable actors that communicate via message passing. Actors can run on any thread (main or a worker) without coupling the actor topology to execution context, allowing for flexible performance optimization and clear separation of concerns.
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Project Status](#project-status)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Packages](#packages)
