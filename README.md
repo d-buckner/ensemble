@@ -6,6 +6,8 @@
 
 ## Overview
 
+This started as a state machine for [p2piano.com](https://p2piano.com), as the combination of p2p networking and the audio syncronization engine has some performance challenges to get smooth on a browser. **I would not advice anyone to use this unless you're interested in the experiment**. It still has a long way to go before having a good dx.
+
 Ensemble is a frontend framework for building complex applications using the actor model. It enables developers to organize application logic into independent, composable actors that communicate via message passing. Actors can run on any thread (main or a worker) without coupling the actor topology to execution context, allowing for flexible performance optimization and clear separation of concerns.
 
 ## Table of Contents
@@ -33,7 +35,7 @@ Ensemble is a frontend framework for building complex applications using the act
 
 **Who is this for?**
 
-Ensemble is an experiment framework for folks who have run into compositional/multi-threading challenges with traditional frameworks and tools. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or innovative frontends where maintaining development velocity as complexity grows becomes a primary concern.
+Ensemble is an experiment framework for folks who have run into compositional/multi-threading challenges with traditional frameworks and tools. If you're building a typical CRUD app or small-to-medium application, established patterns and tools likely serve you better. This framework is designed for teams working on large-scale or data rich frontends where maintaining development velocity as complexity grows becomes a primary concern.
 
 **Status:** ⚠️ Experimental - APIs may change
 
